@@ -1,45 +1,73 @@
 // -----------------------------------------------------------------------------
-// Integration configuration.
-//
-// The configuration is filled in by the user in Gladys, from the `config_schema`
-// declared in `gladys-assistant-integration.json`. The SDK fetches it for you
-// (`gladys.getConfig()`) and notifies you of every change through
-// `gladys.onConfigUpdated()`.
-//
-// This module only provides defaults and normalizes the received object, so the
-// rest of the code never has to deal with `undefined`.
+// The configuration of the manifest `config_schema`, normalized.
 // -----------------------------------------------------------------------------
 
-// Defaults: they MUST stay consistent with the `default` values declared in the
-// `config_schema` of the manifest.
-export const DEFAULT_CONFIG = {
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  unit: 'celsius', // 'celsius' | 'fahrenheit'
-  // Seconds between two reads of the polled sensors. Gladys polls at most once
-  // a minute: slower intervals are applied by skipping polls (see
-  // createPoller in src/devices/index.js).
-  poll_frequency: 300,
-  // Reserved key (NOT in config_schema): because the manifest declares both
-  // 'local' and 'cloud' in its `transports` field, Gladys shows a standard
-  // "Prefer the local connection" toggle and sends the user's choice here.
-  // Read-only for the integration; defaults to true.
-  GLADYS_PREFER_LOCAL: true,
+import { SENSOR_INTERVAL } from './constants.js';
+
+/** Defaults, mirrored by the manifest (checked by test/manifest.test.js). */
+export const DEFAULTS = {
+  host: '',
+  username: '',
+  password: '',
+  verify_certificate: true,
+  include_plugins: false,
+  sensor_interval: SENSOR_INTERVAL.default,
 };
 
 /**
- * Merge the user config with the defaults.
- * @param {Record<string, unknown>} raw config returned by the SDK
+ * The origin of the box from what the user typed: "192.168.1.20",
+ * "http://hc2.lan/", "https://192.168.1.30" or the address of a page of its
+ * web interface. The API is always at <origin>/api.
+ * @returns {{ origin: string } | { error: 'empty' | 'invalid' | 'credentials' }}
  */
+export function parseBoxUrl(raw) {
+  const text = String(raw ?? '').trim();
+  if (text === '') {
+    return { error: 'empty' };
+  }
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`;
+  let url;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return { error: 'invalid' };
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    return { error: 'invalid' };
+  }
+  if (url.username || url.password) {
+    // The password has its own (secret) field: never in an address that gets logged.
+    return { error: 'credentials' };
+  }
+  return { origin: url.origin };
+}
+
+const bounded = (raw, { min, max, default: fallback }) => {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+};
+
 export function normalizeConfig(raw = {}) {
+  const given = Object.fromEntries(
+    Object.entries(raw ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+  );
+  const c = { ...DEFAULTS, ...given };
+  const target = parseBoxUrl(c.host);
+  const username = String(c.username ?? '').trim();
+  const password = String(c.password ?? '');
+  let error = target.error;
+  if (!error && username === '') {
+    error = 'no-user';
+  } else if (!error && password === '') {
+    error = 'no-password';
+  }
   return {
-    ...DEFAULT_CONFIG,
-    ...raw,
-    // Force the types: config may arrive as strings from a form.
-    latitude: Number(raw.latitude ?? DEFAULT_CONFIG.latitude),
-    longitude: Number(raw.longitude ?? DEFAULT_CONFIG.longitude),
-    poll_frequency: Number(raw.poll_frequency ?? DEFAULT_CONFIG.poll_frequency),
-    // The preference is a boolean; anything but an explicit false means true.
-    GLADYS_PREFER_LOCAL: raw.GLADYS_PREFER_LOCAL !== false,
+    origin: target.origin,
+    error,
+    username,
+    password,
+    verifyCertificate: c.verify_certificate !== false,
+    includePlugins: c.include_plugins === true,
+    sensorInterval: Math.round(bounded(c.sensor_interval, SENSOR_INTERVAL)),
   };
 }

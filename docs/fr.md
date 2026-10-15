@@ -1,67 +1,110 @@
-# Template de démonstration
+# Fibaro / Yubii Home
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Cette intégration relie Gladys à **votre Fibaro Home Center 2, Home Center
+Lite, Home Center 3, HC3 Lite ou Nice Yubii Home** et propose les appareils de
+la box dans l'onglet **Découverte** de Gladys : interrupteurs, variateurs,
+modules RGBW, volets roulants, thermostats, serrures et capteurs. Une fois un
+appareil ajouté, ses états suivent la box en direct, et Gladys le pilote **à
+travers la box**, qui continue de tourner : votre réseau Z-Wave, vos scènes
+Fibaro et votre application Yubii restent tels quels. Les télécommandes et
+boutons poussoirs deviennent des **déclencheurs de scène**, et une action de
+scène lance une **scène Fibaro**. Non officiel, sans lien avec Fibaro ou Nice.
+
+> **Version de développement (0.1).** Écrite d'après la documentation de l'API
+> et des exports de vraies box, pas encore testée sur un vrai Home Center ou
+> une vraie Yubii Home. Vos retours sont les bienvenus sur le dépôt GitHub.
+
+## Mise en route
+
+1. Trouvez l'adresse IP de la box (dans son interface web, ou dans votre box
+   internet). Donnez-lui une adresse fixe dans votre box internet.
+2. Dans Gladys, ouvrez **Intégrations → Fibaro / Yubii Home → Configuration**
+   et saisissez :
+   - l'**adresse** : `http://192.168.1.50` (une adresse IP seule vaut
+     `http://`). Un HC3 ou une Yubii Home en HTTPS uniquement : `https://…`,
+     et désactivez **Vérifier le certificat TLS** (leur certificat est
+     auto-signé) ;
+   - le **nom d'utilisateur** et le **mot de passe** de connexion à la box
+     (`admin` sur un Home Center 2, souvent une adresse e-mail sur un HC3 ou
+     une Yubii Home). Un compte administrateur voit tous les appareils ; un
+     compte utilisateur seulement ceux qui lui ont été attribués.
+3. Cliquez sur **Tester la connexion** : le modèle, son firmware et le nombre
+   d'appareils proposés s'affichent sous le bouton.
+4. Ouvrez l'onglet **Découverte** et ajoutez les appareils voulus.
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+| Dans la box                                                           | Dans Gladys                                                                      |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Relais, prise murale (interrupteur)                                   | un interrupteur, avec sa puissance et son énergie quand il les mesure            |
+| Variateur (Dimmer 2, Walli Dimmer…)                                   | une lumière (marche/arrêt, luminosité) s'il pilote une lampe, sinon un variateur |
+| Module RGBW                                                           | une lumière : marche/arrêt, luminosité, couleur                                  |
+| Volet roulant (Roller Shutter 2/3, Walli Roller Shutter)              | un volet : position, ouvrir, fermer, stop                                        |
+| Volet sans position                                                   | ouvrir, fermer, stop                                                             |
+| Tête thermostatique, thermostat, climatisation                        | un thermostat : consigne, mode (arrêt, chauffage, froid, auto), état de chauffe  |
+| Serrure                                                               | une serrure                                                                      |
+| Capteur d'ouverture, de mouvement, d'inondation, de fumée, de CO      | le capteur Gladys correspondant                                                  |
+| Capteurs de température, luminosité, humidité, puissance, énergie     | le capteur Gladys correspondant                                                  |
+| Niveau de pile                                                        | une fonctionnalité batterie                                                      |
+| Télécommande, bouton poussoir, entrées S1/S2 avec activation de scène | un bouton par touche, et le déclencheur « Télécommande ou bouton Fibaro »        |
 
-## Configuration
+Chaque appareil porte le nom de sa pièce, comme dans la box : `Prise murale
+(Salon)`. Écartés : les appareils désactivés et masqués, les utilisateurs et
+téléphones de la box, et les appareils des plugins (HC2) et Quick Apps (HC3),
+sauf si vous activez **Proposer aussi les plugins et Quick Apps**.
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Un appareil que la box signale comme **mort** (il ne répond plus : pile,
+portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à
+ce qu'il réponde à nouveau.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Télécommandes et boutons dans les scènes
 
-## Actions
+Une touche d'une télécommande (KeyFob), d'un bouton poussoir (The Button) ou
+l'entrée S1/S2 d'un interrupteur, variateur ou module volet Fibaro avec
+l'activation de scène envoie un événement de **scène centrale**. Deux façons
+de s'en servir :
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+- la fonctionnalité **bouton** de l'appareil (une par touche) change à chaque
+  appui : « clic », « double clic », « triple clic », « maintenu », « relâché » ;
+- le déclencheur de scène **Télécommande ou bouton Fibaro** : choisissez la
+  télécommande, le numéro de la touche et le geste. Ses variables donnent la
+  touche, le geste et l'attribut envoyé par la box (`Pressed`, `Pressed2`,
+  `HeldDown`, `Released`…).
 
-## Scènes
+Les touches S1/S2 n'envoient d'événements que si l'**activation de scène** est
+activée dans les paramètres du module (paramètre 28 d'un Dimmer 2 ; voir le
+manuel des autres).
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+## Lancer une scène Fibaro
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+Cliquez sur **Lister les scènes Fibaro** dans la configuration : le numéro de
+chaque scène visible s'affiche sous le bouton. Dans une scène Gladys, ajoutez
+l'action **Lancer une scène Fibaro** et saisissez le numéro. Les scènes
+protégées par un code PIN ne peuvent pas être lancées ainsi.
 
-## Tableau de bord
+## Bon à savoir
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+- **Temps réel** : Gladys garde une requête ouverte avec la box
+  (`/api/refreshStates`), qui répond dès que quelque chose change.
+- **Mesures** : une prise murale peut remonter sa puissance toutes les
+  quelques secondes. Gladys garde la dernière mesure toutes les **Intervalle
+  minimum entre deux mesures d'un capteur** (10 s par défaut) ; interrupteurs,
+  boutons et détecteurs d'ouverture ou de mouvement ne sont jamais retardés.
+- **Changements dans la box** (un appareil ajouté, renommé, déplacé) : Gladys
+  relit la liste en quelques secondes ; cliquez sur **Scanner** dans
+  Découverte pour forcer.
+- La box bloque une adresse après **plusieurs échecs de connexion** : après
+  une erreur de mot de passe, Gladys ne réessaie que toutes les 5 minutes.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« a refusé le nom d'utilisateur ou le mot de passe »** : saisissez-les à
+  nouveau ; essayez-les dans l'interface web de la box.
+- **« certificate refused »** : désactivez **Vérifier le certificat TLS**, ou
+  utilisez `http://`.
+- **« injoignable »** : utilisez l'adresse IP de la box sur le réseau local
+  (pas `localhost`, pas une adresse d'accès à distance), et vérifiez que la
+  machine Gladys la joint.
+- **Un appareil manque** : est-il activé et visible dans la box ? Est-ce un
+  plugin ou une Quick App (activez l'option) ? Cliquez sur **Tester la
+  connexion** : le message compte les appareils écartés et pourquoi.

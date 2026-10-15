@@ -1,33 +1,48 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { DEFAULTS, normalizeConfig, parseBoxUrl } from '../src/config.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
+test('the address of the box: an IP, an http(s) URL, a page of its interface', () => {
+  assert.deepEqual(parseBoxUrl('192.168.1.50'), { origin: 'http://192.168.1.50' });
+  assert.deepEqual(parseBoxUrl(' https://192.168.1.50/ '), { origin: 'https://192.168.1.50' });
+  assert.deepEqual(parseBoxUrl('http://hc2.lan:8080/fibaro/en/home/index.html'), {
+    origin: 'http://hc2.lan:8080',
+  });
+  assert.deepEqual(parseBoxUrl('http://192.168.1.50/api'), { origin: 'http://192.168.1.50' });
+  assert.deepEqual(parseBoxUrl(''), { error: 'empty' });
+  assert.deepEqual(parseBoxUrl('ftp://box'), { error: 'invalid' });
+  assert.deepEqual(parseBoxUrl('http://'), { error: 'invalid' });
+  assert.deepEqual(parseBoxUrl('http://admin:pwd@192.168.1.50'), { error: 'credentials' });
 });
 
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
-});
-
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
-});
-
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('defaults, bounds and what is missing', () => {
+  const config = normalizeConfig({
+    host: '192.168.1.50',
+    username: ' admin ',
+    password: 'p',
+    sensor_interval: 9999,
+  });
+  assert.deepEqual(config, {
+    origin: 'http://192.168.1.50',
+    error: undefined,
+    username: 'admin',
+    password: 'p',
+    verifyCertificate: true,
+    includePlugins: false,
+    sensorInterval: 300,
+  });
+  assert.equal(normalizeConfig({ ...DEFAULTS }).error, 'empty');
+  assert.equal(normalizeConfig({ host: 'box' }).error, 'no-user');
+  assert.equal(normalizeConfig({ host: 'box', username: 'admin' }).error, 'no-password');
+  const custom = normalizeConfig({
+    host: 'https://box',
+    username: 'a',
+    password: 'b',
+    verify_certificate: false,
+    include_plugins: true,
+    sensor_interval: null,
+  });
+  assert.equal(custom.verifyCertificate, false);
+  assert.equal(custom.includePlugins, true);
+  assert.equal(custom.sensorInterval, DEFAULTS.sensor_interval);
 });

@@ -2,3 +2,5 @@ node_modules/
 package-lock.json
 data/
 *.log
+# Verbatim copies of the pyfibaro test fixtures (MIT, see their LICENSE).
+test/fixtures/pyfibaro/

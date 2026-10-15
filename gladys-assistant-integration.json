@@ -1,177 +1,223 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Fibaro / Yubii Home",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Your Fibaro Home Center 2, HC3 or Yubii Home in Gladys: lights, shutters, sensors, remotes…",
+    "fr": "Votre Fibaro Home Center 2, HC3 ou Yubii Home dans Gladys : lumières, volets, capteurs…"
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-fibaro:0.1.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-fibaro/main/cover.png",
+  "categories": ["protocols", "lighting", "climate"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Fibaro or Yubii box in Gladys",
+        "fr": "Votre box Fibaro ou Yubii dans Gladys"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "For a Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite or Nice Yubii Home: every enabled and visible device of the box is offered in the Discovery tab (switches, dimmers, RGBW controllers, shutters, thermostats, locks, door, motion, flood and smoke sensors, temperature, light, humidity, power, battery) and the remotes and push buttons become scene triggers. The states follow the box live and Gladys controls the devices through it, which keeps running. Type the address of the box as seen from the Gladys machine (its LAN IP address) and the account you log in to it with. Unofficial, not affiliated with Fibaro or Nice.",
+        "fr": "Pour un Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite ou une Nice Yubii Home : chaque appareil activé et visible de la box est proposé dans l'onglet Découverte (interrupteurs, variateurs, modules RGBW, volets, thermostats, serrures, capteurs d'ouverture, de mouvement, d'inondation et de fumée, température, luminosité, humidité, consommation, batterie) et les télécommandes et boutons poussoirs deviennent des déclencheurs de scène. Les états suivent la box en direct et Gladys pilote les appareils à travers elle, qui continue de tourner. Saisissez l'adresse de la box vue depuis la machine Gladys (son adresse IP sur le réseau local) et le compte avec lequel vous vous y connectez. Non officiel, sans lien avec Fibaro ou Nice."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/LM1LC3N7/gladys-fibaro/blob/main/docs/fr.md",
+          "label": { "en": "Guide (French)", "fr": "Guide (français)" }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-fibaro/blob/main/docs/en.md",
+          "label": { "en": "Guide (English)", "fr": "Guide (anglais)" }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
+      "key": "host",
+      "type": "string",
+      "label": { "en": "Address of the box", "fr": "Adresse de la box" },
       "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+        "en": "Its IP address on your local network: http://192.168.1.50, or https://192.168.1.50 for an HC3 or a Yubii Home set to HTTPS. A bare IP address means http://.",
+        "fr": "Son adresse IP sur votre réseau local : http://192.168.1.50, ou https://192.168.1.50 pour un HC3 ou une Yubii Home en HTTPS. Une adresse IP seule vaut http://."
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "placeholder": { "en": "http://192.168.1.50", "fr": "http://192.168.1.50" },
+      "required": true
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
+      "key": "username",
+      "type": "string",
+      "label": { "en": "User name", "fr": "Nom d'utilisateur" },
       "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+        "en": "The account you log in to the web interface of the box with (admin, or an e-mail address on an HC3 or a Yubii Home). An administrator sees every device.",
+        "fr": "Le compte de connexion à l'interface web de la box (admin, ou une adresse e-mail sur un HC3 ou une Yubii Home). Un administrateur voit tous les appareils."
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "placeholder": { "en": "admin", "fr": "admin" },
+      "required": true
     },
     {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
-      "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
-    },
-    {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "password",
+      "type": "secret",
+      "label": { "en": "Password", "fr": "Mot de passe" },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "The password of this account.",
+        "fr": "Le mot de passe de ce compte."
+      },
+      "required": true
+    },
+    {
+      "key": "verify_certificate",
+      "type": "boolean",
+      "label": {
+        "en": "Verify the TLS certificate (https)",
+        "fr": "Vérifier le certificat TLS (https)"
+      },
+      "description": {
+        "en": "The HC3 and the Yubii Home come with a self-signed certificate: turn this off to use https:// with them on your local network.",
+        "fr": "Le HC3 et la Yubii Home ont un certificat auto-signé : désactivez cette option pour les utiliser en https:// sur votre réseau local."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": true
+    },
+    {
+      "key": "include_plugins",
+      "type": "boolean",
+      "label": {
+        "en": "Also offer the plugins and Quick Apps",
+        "fr": "Proposer aussi les plugins et Quick Apps"
+      },
+      "description": {
+        "en": "Off: only the physical devices (Z-Wave, Zigbee, Nice). On: the devices of the plugins (HC2) and Quick Apps (HC3) too.",
+        "fr": "Désactivé : seulement les appareils physiques (Z-Wave, Zigbee, Nice). Activé : aussi les appareils des plugins (HC2) et des Quick Apps (HC3)."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "sensor_interval",
+      "type": "number",
+      "label": {
+        "en": "Minimum interval between two readings of a sensor (s)",
+        "fr": "Intervalle minimum entre deux mesures d'un capteur (s)"
+      },
+      "description": {
+        "en": "A wall plug reports its power every few seconds: Gladys keeps the last reading at this pace. Switches, lights, buttons, motion and opening sensors are never delayed.",
+        "fr": "Une prise remonte sa consommation toutes les quelques secondes : Gladys garde la dernière mesure à ce rythme. Interrupteurs, lumières, boutons, détecteurs de mouvement et d'ouverture ne sont jamais retardés."
+      },
+      "required": false,
+      "default": 10,
+      "min": 0,
+      "max": 300
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "key": "test_connection",
+      "label": { "en": "Test the connection", "fr": "Tester la connexion" },
+      "timeout_seconds": 90
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "list_scenes",
+      "label": { "en": "List the Fibaro scenes", "fr": "Lister les scènes Fibaro" },
+      "timeout_seconds": 30
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "button_event",
+      "label": {
+        "en": "Fibaro remote or button",
+        "fr": "Télécommande ou bouton Fibaro"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A key of a remote, a push button or a wall switch with scene activation (Z-Wave central scene): which key, which gesture.",
+        "fr": "Une touche d'une télécommande, d'un bouton poussoir ou d'un interrupteur avec activation de scène (scène centrale Z-Wave) : quelle touche, quel geste."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": { "en": "Remote or button", "fr": "Télécommande ou bouton" }
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "button",
+          "type": "number",
+          "label": { "en": "Key number (1, 2…)", "fr": "Numéro de la touche (1, 2…)" },
+          "description": {
+            "en": "1 and 2 are the S1 and S2 inputs of a Fibaro switch or dimmer.",
+            "fr": "1 et 2 sont les entrées S1 et S2 d'un interrupteur ou variateur Fibaro."
+          },
+          "min": 1,
+          "max": 99
+        },
+        {
+          "key": "event",
+          "type": "select",
+          "label": { "en": "Gesture", "fr": "Geste" },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            { "value": "pressed", "label": { "en": "Click", "fr": "Clic" } },
+            { "value": "double", "label": { "en": "Double click", "fr": "Double clic" } },
+            { "value": "triple", "label": { "en": "Triple click", "fr": "Triple clic" } },
+            {
+              "value": "quadruple",
+              "label": { "en": "Quadruple click", "fr": "Quadruple clic" }
+            },
+            {
+              "value": "quintuple",
+              "label": { "en": "Quintuple click", "fr": "Quintuple clic" }
+            },
+            { "value": "held", "label": { "en": "Held", "fr": "Maintenu" } },
+            {
+              "value": "released",
+              "label": { "en": "Released after a hold", "fr": "Relâché après maintien" }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "button",
+          "type": "number",
+          "label": { "en": "Key number", "fr": "Numéro de la touche" }
+        },
+        {
+          "key": "event",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": { "en": "Gesture", "fr": "Geste" }
+        },
+        {
+          "key": "attribute",
+          "type": "string",
+          "label": { "en": "Fibaro key attribute", "fr": "Attribut Fibaro de la touche" },
+          "description": {
+            "en": "As the box sends it: Pressed, Pressed2, Pressed3, HeldDown, Released…",
+            "fr": "Tel que la box l'envoie : Pressed, Pressed2, Pressed3, HeldDown, Released…"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
+      "key": "run_scene",
+      "label": { "en": "Run a Fibaro scene", "fr": "Lancer une scène Fibaro" },
       "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+        "en": "Starts a scene of the box. Its number is shown by the \"List the Fibaro scenes\" button of the configuration.",
+        "fr": "Lance une scène de la box. Son numéro est donné par le bouton « Lister les scènes Fibaro » de la configuration."
       },
-      "timeout_seconds": 15,
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "scene",
+          "type": "number",
+          "label": { "en": "Scene number", "fr": "Numéro de la scène" },
+          "required": true,
+          "min": 1
         }
       ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
     }
   ]
 }

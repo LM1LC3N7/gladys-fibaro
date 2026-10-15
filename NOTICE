@@ -1,0 +1,26 @@
+gladys-fibaro
+Copyright 2026 LM1LC3N7 and the gladys-fibaro contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes:
+
+- The test fixtures of pyfibaro
+  https://github.com/rappenze/pyfibaro
+  Copyright (c) 2022 Roman Appenzeller, MIT License.
+  test/fixtures/pyfibaro/*.json are verbatim copies; the MIT licence text is
+  kept next to them in test/fixtures/pyfibaro/LICENSE.
+
+The Fibaro protocol facts (model detection, refreshStates, actions and scenes
+per API version, device type mapping, property quirks) were read in these
+projects, used as documentation only (no code included):
+
+- pyfibaro, https://github.com/rappenze/pyfibaro, MIT License.
+- The Home Assistant `fibaro` integration,
+  https://github.com/home-assistant/core, Apache License, Version 2.0.
+- homebridge-fibaro-home-center,
+  https://github.com/ilcato/homebridge-fibaro-home-center,
+  Apache License, Version 2.0.
+
+Fibaro, Home Center and Yubii are trademarks of their owners (Fibar Group,
+Nice S.p.A.). This project is unofficial, not affiliated with Fibaro or Nice.
