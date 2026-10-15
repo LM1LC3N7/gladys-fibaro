@@ -1,9 +1,63 @@
-// The REST client, with a fake transport: no network in the tests.
+// The REST client, with a fake transport, and the HTTP helper itself against a
+// loopback server (127.0.0.1 only, never the network).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { TIMINGS } from '../src/constants.js';
-import { FibaroError, createClient, networkError, parseAnswer } from '../src/fibaro.js';
+import {
+  FibaroError,
+  createClient,
+  httpRequest,
+  networkError,
+  parseAnswer,
+} from '../src/fibaro.js';
+
+test('httpRequest: a real request on the loopback, the size limit and the timeout', async (t) => {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      seen.push({ method: req.method, headers: req.headers, body });
+      if (req.url.startsWith('/big')) {
+        res.end('x'.repeat(4096));
+      } else if (req.url.startsWith('/slow')) {
+        setTimeout(() => res.end('{}'), 500);
+      } else {
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end('{"message":"Accepted"}');
+      }
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const options = { timeout: 2000, verifyCertificate: true };
+
+  const answer = await httpRequest(`${base}/api/devices/41/action/turnOn`, {
+    ...options,
+    method: 'POST',
+    headers: { Authorization: 'Basic YWRtaW46cA==' },
+    body: '{"args":[]}',
+  });
+  assert.deepEqual(answer, { status: 202, location: undefined, body: '{"message":"Accepted"}' });
+  assert.equal(seen[0].method, 'POST');
+  assert.equal(seen[0].body, '{"args":[]}');
+  assert.equal(seen[0].headers.authorization, 'Basic YWRtaW46cA==');
+  assert.equal(seen[0].headers['content-type'], 'application/json');
+  assert.equal(seen[0].headers.accept, 'application/json');
+
+  // Over the limit: the size error, never a truncated body.
+  await assert.rejects(
+    httpRequest(`${base}/big`, { ...options, method: 'GET', headers: {}, maxBytes: 1024 }),
+    { kind: 'size', message: 'answer larger than 1 MB' },
+  );
+  await assert.rejects(
+    httpRequest(`${base}/slow`, { ...options, method: 'GET', headers: {}, timeout: 100 }),
+    { kind: 'timeout' },
+  );
+});
 
 function client(answers = {}) {
   const requests = [];
