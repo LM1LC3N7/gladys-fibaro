@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-16
+
 ### Added
 
 - Connection to a Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3
@@ -38,4 +40,5 @@ the notes of the version's GitHub Release.
 - Sensor readings throttled to a configurable interval, all states within the
   Gladys rate limit.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-fibaro/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-fibaro/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-fibaro/releases/tag/v0.1.1
