@@ -12,6 +12,8 @@ export const DEFAULTS = {
   verify_certificate: true,
   include_plugins: false,
   sensor_interval: SENSOR_INTERVAL.default,
+  allow_gates: false,
+  allow_unlock: false,
 };
 
 /**
@@ -68,6 +70,9 @@ export function normalizeConfig(raw = {}) {
     password,
     verifyCertificate: c.verify_certificate !== false,
     includePlugins: c.include_plugins === true,
+    // Opening a gate / door and unlocking: only when the user ticked them (true, never "true").
+    allowGates: c.allow_gates === true,
+    allowUnlock: c.allow_unlock === true,
     sensorInterval: Math.round(bounded(c.sensor_interval, SENSOR_INTERVAL)),
   };
 }

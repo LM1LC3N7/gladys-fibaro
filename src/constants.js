@@ -53,6 +53,15 @@ export const TIMINGS = {
   commandTimeout: 3000,
   /** Longest wait behind the previous command of the same device; refused (not sent) beyond. */
   commandQueueWait: 500,
+  /**
+   * A guarded command (gate opening, unlocking): the device is read again
+   * first (rereadTimeout), then the action (sensitiveCommandTimeout): with the
+   * queue wait, 4 s at most.
+   */
+  rereadTimeout: 1000,
+  sensitiveCommandTimeout: 2500,
+  /** A command without confirmation: the device is read again after this delay. */
+  confirmReread: 2000,
   /** One request of the connection test (the button waits 90 s). */
   testTimeout: 25_000,
   /**

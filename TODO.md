@@ -123,11 +123,22 @@ up to date at the end of every milestone.
 - "Test the connection": hidden parents of other devices are "technical
   nodes", not "left out"; the types of the devices with nothing to offer are
   listed (5 at most).
-- To do (found while fixing #4): `com.fibaro.barrier` (gates, garage doors)
-  still falls back to a controllable shutter through its open / close
-  actions, and the lock `unsecure` is allowed by default: both go against
-  Louis's rule (opening off by default). Needs an option, a migration that
-  keeps the created features, and an `xhigh` review.
+- Gates and locks (2026-10-20, Louis's rule: opening off by default):
+  `isGate` (barrier / gate / garage types, "door" types except sensors and
+  locks, Gate / GarageDoor roles, with an open, close or setValue action) is
+  checked before the shutters. A gate: `gate` opening-sensor (read-only) and
+  `open` / `close` / `stop` button/push (a push is 1). Open needs
+  `allow_gates`, unsecure needs `allow_unlock` (both default off, only a real
+  `true`); close, stop and secure always work. A guarded call carries `guard`
+  and `decide`: the app refuses at once when the option is off, reads the
+  device again (`GET /api/devices/{id}`, 1 s), decides on that fresh state
+  only (unknown or dead: refused; already open / unlocked: nothing sent),
+  checks the option and the running configuration again, then sends (2.5 s).
+  Migration: the features of a device already created are kept
+  (`buildModel(..., createdFeatures)`): a gate created as a shutter by 0.1.1
+  keeps `state` / `position`, with opening guarded. A timeout after sending
+  is "sent, without confirmation" and the device is read again after 2 s.
+  Needs an `xhigh` review (physical access).
 - RGBW: color = RGB of `color` ("r,g,b,w"), `lastColorSet` when the
   controller is off (0,0,0,0); written with `setColor` and string arguments
   (as Home Assistant), white at 0.

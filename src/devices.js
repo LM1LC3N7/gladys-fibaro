@@ -49,12 +49,26 @@ export function emptyModel() {
  *   the external ids of one device (gladys.externalIds('fibaro', id))
  * @param {{ devices: object[] }} inventory see src/inventory.js
  * @param {{ unit?: 'C' | 'F' }} [box] the temperature unit of the box
+ * @param {Iterable<string>} [createdFeatures] the external ids of the features already
+ *   created in Gladys: a device keeps them when its mapping changed (no feature lost)
  */
-export function buildModel(idsOf, inventory, box) {
+export function buildModel(idsOf, inventory, box, createdFeatures = []) {
   const model = emptyModel();
+  /** device external id -> the keys of its created features */
+  const existingByDevice = new Map();
+  for (const id of createdFeatures) {
+    const cut = id.lastIndexOf(':');
+    if (cut > 0) {
+      const device = id.slice(0, cut);
+      if (!existingByDevice.has(device)) {
+        existingByDevice.set(device, new Set());
+      }
+      existingByDevice.get(device).add(id.slice(cut + 1));
+    }
+  }
   for (const dev of inventory.devices) {
     model.counts.read += 1;
-    const mapped = mapDevice(dev, box);
+    const mapped = mapDevice(dev, box, existingByDevice.get(idsOf(dev.id).device));
     if (mapped.features.length === 0) {
       model.counts.empty += 1;
       const kind = dev.baseType ? `${dev.type} (${dev.baseType})` : dev.type || '?';

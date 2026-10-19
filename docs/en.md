@@ -42,7 +42,8 @@ affiliated with Fibaro or Nice.
 | Roller shutter (Roller Shutter 2/3, Walli Roller Shutter) | a shutter: position, open, close, stop                              |
 | Shutter without position                                  | open, close, stop                                                   |
 | Thermostatic head, thermostat, HVAC                       | a thermostat: setpoint, mode (off, heat, cool, auto), heating state |
-| Door lock                                                 | a lock                                                              |
+| Door lock                                                 | a lock: locking always; unlocking only with the option              |
+| Gate, garage door, motorized door (barrier, Gate role)    | its state, and Open, Close, Stop buttons; Open only with the option |
 | Door/window, motion, flood, smoke, CO sensor              | the matching Gladys sensor                                          |
 | Temperature, light, humidity, power, energy sensors       | the matching Gladys sensor                                          |
 | Battery level                                             | a battery feature                                                   |
@@ -52,6 +53,17 @@ Each device is named after its room, as in the box: `Wall plug (Living
 room)`. Left out: the disabled and hidden devices, the users and phones of
 the box, and the devices of the plugins (HC2) and Quick Apps (HC3), unless
 you turn on **Also offer the plugins and Quick Apps**.
+
+**Opening and unlocking are off by default.** Gladys closes and stops a
+gate, a garage door or a motorized door, and locks a lock, but never opens or
+unlocks them until you turn on **Allow opening gates, garage doors and doors**
+(`allow_gates`) or **Allow unlocking the door locks** (`allow_unlock`).
+Otherwise the command is refused with a message and nothing is sent. With the
+option on, Gladys reads the state of the device from the box again just
+before: it refuses when the state is unknown or the device is reported dead,
+and sends nothing when it is already open or unlocked. A gate added with
+version 0.1.1 (offered as a shutter then) keeps its features, with the same
+rule. Never tested on a real gate or lock.
 
 A device the box reports as **dead** (it no longer answers: battery, range,
 power) keeps a badge with an orange dot in Gladys until it answers again.

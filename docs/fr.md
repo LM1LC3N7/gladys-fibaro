@@ -42,7 +42,8 @@ scène lance une **scène Fibaro**. Non officiel, sans lien avec Fibaro ou Nice.
 | Volet roulant (Roller Shutter 2/3, Walli Roller Shutter)              | un volet : position, ouvrir, fermer, stop                                        |
 | Volet sans position                                                   | ouvrir, fermer, stop                                                             |
 | Tête thermostatique, thermostat, climatisation                        | un thermostat : consigne, mode (arrêt, chauffage, froid, auto), état de chauffe  |
-| Serrure                                                               | une serrure                                                                      |
+| Serrure                                                               | une serrure : verrouiller toujours ; déverrouiller seulement avec l'option       |
+| Portail, porte de garage, porte motorisée (barrier, rôle Portail)     | son état, et des boutons Ouvrir, Fermer, Stop ; Ouvrir seulement avec l'option   |
 | Capteur d'ouverture, de mouvement, d'inondation, de fumée, de CO      | le capteur Gladys correspondant                                                  |
 | Capteurs de température, luminosité, humidité, puissance, énergie     | le capteur Gladys correspondant                                                  |
 | Niveau de pile                                                        | une fonctionnalité batterie                                                      |
@@ -52,6 +53,19 @@ Chaque appareil porte le nom de sa pièce, comme dans la box : `Prise murale
 (Salon)`. Écartés : les appareils désactivés et masqués, les utilisateurs et
 téléphones de la box, et les appareils des plugins (HC2) et Quick Apps (HC3),
 sauf si vous activez **Proposer aussi les plugins et Quick Apps**.
+
+**Ouverture et déverrouillage désactivés par défaut.** Gladys ferme et
+arrête un portail, une porte de garage ou une porte motorisée, et verrouille
+une serrure, mais ne les ouvre ni ne les déverrouille tant que vous n'avez pas
+coché **Autoriser l'ouverture des portails, portes de garage et portes**
+(`allow_gates`) ou **Autoriser le déverrouillage des serrures**
+(`allow_unlock`). Sinon la commande est refusée avec un message, sans rien
+envoyer. Une fois l'option cochée, Gladys relit l'état de l'appareil dans la
+box juste avant : elle refuse si l'état est inconnu ou si l'appareil est
+signalé mort, et n'envoie rien s'il est déjà ouvert ou déverrouillé. Un
+portail ajouté avec la version 0.1.1 (alors proposé comme un volet) garde ses
+fonctions, avec la même règle. Jamais testé sur un vrai portail ni une vraie
+serrure.
 
 Un appareil que la box signale comme **mort** (il ne répond plus : pile,
 portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à

@@ -235,6 +235,8 @@ export function createClient({
     rooms: async (options) => asList(await get('/rooms', options), '/api/rooms'),
     sections: async (options) => asList(await get('/sections', options), '/api/sections'),
     scenes: async (options) => asList(await get('/scenes', options), '/api/scenes'),
+    /** One device, read again before a guarded command. */
+    device: (id, options) => get(`/devices/${encodeURIComponent(id)}`, options),
 
     /** The changes since the cursor `last` (0: only the current cursor matters). */
     async refreshStates(last, { timeout = TIMINGS.longPollTimeout } = {}) {

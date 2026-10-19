@@ -29,8 +29,16 @@ test('defaults, bounds and what is missing', () => {
     password: 'p',
     verifyCertificate: true,
     includePlugins: false,
+    allowGates: false,
+    allowUnlock: false,
     sensorInterval: 300,
   });
+  // Opening and unlocking: only a real true turns them on.
+  const base = { host: '192.168.1.50', username: 'admin', password: 'p' };
+  assert.equal(normalizeConfig({ ...base, allow_gates: 'true' }).allowGates, false);
+  assert.equal(normalizeConfig({ ...base, allow_unlock: 1 }).allowUnlock, false);
+  assert.equal(normalizeConfig({ ...base, allow_gates: true }).allowGates, true);
+  assert.equal(normalizeConfig({ ...base, allow_unlock: true }).allowUnlock, true);
   assert.equal(normalizeConfig({ ...DEFAULTS }).error, 'empty');
   assert.equal(normalizeConfig({ host: 'box' }).error, 'no-user');
   assert.equal(normalizeConfig({ host: 'box', username: 'admin' }).error, 'no-password');

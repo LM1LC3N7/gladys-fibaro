@@ -39,6 +39,8 @@ export function fakeFibaro({
     fail: undefined,
     /** "<device id>:<action>" -> error thrown by callAction */
     actionErrors: {},
+    /** "<device id>" -> error thrown when the device is read again */
+    deviceErrors: {},
     clients: [],
   };
 
@@ -74,6 +76,18 @@ export function fakeFibaro({
         return structuredClone(box.sections);
       case 'scenes':
         return structuredClone(box.scenes);
+      case 'device': {
+        const [id] = args;
+        const error = box.deviceErrors[String(id)];
+        if (error) {
+          throw error;
+        }
+        const dev = box.devices.find((d) => String(d.id) === String(id));
+        if (!dev) {
+          throw new FibaroError('notfound', 'not found', { status: 404 });
+        }
+        return structuredClone(dev);
+      }
       case 'refreshStates': {
         const [last] = args;
         const entries = last === 0 ? [] : box.log.filter((e) => e.seq > last);
@@ -117,6 +131,7 @@ export function fakeFibaro({
       'rooms',
       'sections',
       'scenes',
+      'device',
       'refreshStates',
       'callAction',
       'runScene',

@@ -26,6 +26,21 @@ the notes of the version's GitHub Release.
   never waits; an action times out after 3 s, within the 5 s Gladys waits;
   a command that may have reached the box is reported "sent, without
   confirmation", never "not sent".
+- Gates, garage doors and motorized doors (`com.fibaro.barrier`, gate /
+  garage / door types, the Gate and GarageDoor roles) are no longer offered as
+  shutters: their state (read-only) and Open, Close, Stop buttons. Opening is
+  off by default, behind the new "Allow opening gates, garage doors and doors"
+  option (`allow_gates`); closing and stopping always work.
+- Door locks: unlocking is off by default, behind the new "Allow unlocking the
+  door locks" option (`allow_unlock`); locking always works.
+- With the option on, opening and unlocking are decided on the state read
+  again from the box just before (refused when unknown or the device is dead,
+  nothing sent when already open or unlocked), and the option is checked
+  again right before sending. Otherwise the command is refused with a message,
+  nothing sent. A device created with 0.1.1 keeps all its features (a gate
+  keeps its shutter features, with the same rule).
+- A command without confirmation from the box is said so, and the device is
+  read again a few seconds later.
 - "Test the connection" no longer counts the hidden technical nodes of the box
   (the Z-Wave parent of each module) as devices left out, and names the
   Fibaro types of the devices with nothing to offer.

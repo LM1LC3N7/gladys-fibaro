@@ -154,7 +154,11 @@ test('the Gladys commands run the device actions (API v5)', async (t) => {
   assert.deepEqual(await run('Radiateur chambre (Chambre)', 'mode', 0), [
     [5, '70', 'setThermostatMode', 'Off'],
   ]);
-  assert.deepEqual(await run('Serrure (Entrée)', 'lock', 0), [[5, '90', 'unsecure']]);
+  assert.deepEqual(await run('Serrure (Entrée)', 'lock', 1), [[5, '90', 'secure']]);
+  const lock = deviceNamed(gladys, 'Serrure (Entrée)');
+  const unlock = await gladys.fake.setValue(lock, featureOf(lock, 'lock'), 0);
+  assert.equal(unlock.success, false, 'unlocking is off by default');
+  assert.match(unlock.error, /refused, not sent: turn on the "allow_unlock" option/);
 
   const store = await created(gladys, 'Store terrasse (Salon)');
   assert.deepEqual(await run('Store terrasse (Salon)', 'state', 1), [[5, '61', 'open']]);

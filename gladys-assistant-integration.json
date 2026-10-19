@@ -110,6 +110,34 @@
       "default": 10,
       "min": 0,
       "max": 300
+    },
+    {
+      "key": "allow_gates",
+      "type": "boolean",
+      "label": {
+        "en": "Allow opening gates, garage doors and doors",
+        "fr": "Autoriser l'ouverture des portails, portes de garage et portes"
+      },
+      "description": {
+        "en": "Off (default): Gladys shows their state and can close or stop them, but never opens them. On: the Open button works too, after reading the state from the box again (refused when it is unknown).",
+        "fr": "Désactivé (par défaut) : Gladys affiche leur état et peut les fermer ou les arrêter, mais ne les ouvre jamais. Activé : le bouton Ouvrir fonctionne aussi, après avoir relu l'état dans la box (refusé s'il est inconnu)."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "allow_unlock",
+      "type": "boolean",
+      "label": {
+        "en": "Allow unlocking the door locks",
+        "fr": "Autoriser le déverrouillage des serrures"
+      },
+      "description": {
+        "en": "Off (default): Gladys shows the state of the locks and can lock them, but never unlocks them. On: unlocking works too, after reading the state from the box again (refused when it is unknown).",
+        "fr": "Désactivé (par défaut) : Gladys affiche l'état des serrures et peut les verrouiller, mais ne les déverrouille jamais. Activé : le déverrouillage fonctionne aussi, après avoir relu l'état dans la box (refusé s'il est inconnu)."
+      },
+      "required": false,
+      "default": false
     }
   ],
   "actions": [

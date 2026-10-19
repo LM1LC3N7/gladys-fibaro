@@ -9,6 +9,7 @@ import { buildInventory } from '../src/inventory.js';
 import {
   BUTTON_STATUS,
   COVER_STATE,
+  GUARDS,
   OPENING_SENSOR_STATE,
   THERMOSTAT_MODE,
   decodeKeyAttribute,
@@ -221,12 +222,20 @@ test('measurements by type, by unit, by name', () => {
   assert.deepEqual(mapped(netatmo.get('265')).features, [], 'the plugin controller itself');
 });
 
-test('a door lock: 1 is locked, secure / unsecure', () => {
+test('a door lock: 1 is locked, secure always, unsecure guarded and decided on a fresh state', () => {
   const lock = mapped(HC3.get('90'));
   assert.deepEqual(lock.specs[0], 'lock lock/binary');
   assert.equal(lock.read('lock'), 1);
-  assert.deepEqual(lock.write('lock', 0), [{ name: 'unsecure', args: [] }]);
   assert.deepEqual(lock.write('lock', 1), [{ name: 'secure', args: [] }]);
+  const [unsecure] = lock.write('lock', 0);
+  assert.deepEqual([unsecure.name, unsecure.args, unsecure.guard], ['unsecure', [], GUARDS.UNLOCK]);
+  assert.equal(unsecure.decide({ value: true }), 'send');
+  assert.equal(unsecure.decide({ value: false }), 'skip', 'already unlocked');
+  assert.throws(() => unsecure.decide({}), /state unknown, unlocking refused/);
+  assert.throws(() => unsecure.decide({ value: true, dead: true }), /dead/);
+  for (const bad of [null, '', 0.5, 2]) {
+    assert.throws(() => lock.write('lock', bad), /invalid value/);
+  }
 });
 
 test('remotes and scene keys: one button feature per key', () => {

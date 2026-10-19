@@ -165,6 +165,64 @@ const SHUTTER_ROLES = new Set([
 ]);
 const GATE_ROLES = new Set(['Gate', 'GarageDoor']);
 
+// --- Gates, garage doors, doors ------------------------------------------------
+
+/** Barriers, gates, garage doors; "door" types except the door sensors and locks. */
+const GATE_TYPE = /barrier|gate|garage/i;
+const DOOR_TYPE = /door/i;
+const DOOR_NOT_ACTOR = /sensor|lock/i;
+
+/**
+ * A gate, a garage door or a motorized door: by its type or base type, or the
+ * Gate / GarageDoor role picked in the box (a shutter module driving a gate).
+ * Never a shutter: opening it is off until the user allows it (allow_gates).
+ */
+export function isGate(dev) {
+  const types = [dev.type, dev.baseType].filter(Boolean);
+  return (
+    types.some((t) => GATE_TYPE.test(t) || (DOOR_TYPE.test(t) && !DOOR_NOT_ACTOR.test(t))) ||
+    GATE_ROLES.has(dev.properties.deviceRole)
+  );
+}
+
+/** The state of a gate, read from `state` then `value`: 'open' | 'closed' | 'moving' | undefined. */
+export function gateStateOf(p) {
+  for (const raw of [p?.state, p?.value]) {
+    if (typeof raw === 'boolean') {
+      return raw ? 'open' : 'closed';
+    }
+    const text = String(raw ?? '')
+      .trim()
+      .toLowerCase();
+    if (text === 'closed' || text === 'close') {
+      return 'closed';
+    }
+    if (text === 'open' || text === 'opened') {
+      return 'open';
+    }
+    if (text === 'opening' || text === 'closing') {
+      return 'moving';
+    }
+    const n = toNumber(text);
+    if (n !== undefined) {
+      return n > 0 ? 'open' : 'closed';
+    }
+  }
+  return undefined;
+}
+
+/** A lock: 1 locked, 0 unlocked, undefined unknown. */
+export const lockStateOf = (p) => binaryOf(p?.value ?? p?.secured);
+
+/** The options that allow a command (src/config.js keys, camelCase). */
+export const GUARDS = { GATES: 'allowGates', UNLOCK: 'allowUnlock' };
+
+const deadCheck = (name, p) => {
+  if (toBool(p?.dead) === true) {
+    throw new Error(`${name} is reported dead by the box: command not sent`);
+  }
+};
+
 /**
  * A roller shutter, a blind or an awning: by its type or base type, by the
  * role picked in the box, or by its open / close actions. Checked before the
@@ -193,6 +251,10 @@ const isThermostat = (dev) =>
 
 /** The role of a device, or undefined when nothing fits. */
 export function roleOf(dev) {
+  // An actor only: a door sensor with a Gate role stays a sensor.
+  if (isGate(dev) && (has(dev, 'open') || has(dev, 'close') || has(dev, 'setValue'))) {
+    return 'gate';
+  }
   if (isShutter(dev)) {
     return 'cover';
   }
@@ -356,8 +418,10 @@ const OPERATING_STATES = {
 const call = (name, ...args) => ({ name, args });
 
 class DeviceMapper {
-  constructor(dev, { unit = 'C' } = {}) {
+  constructor(dev, { unit = 'C' } = {}, existing = new Set()) {
     this.dev = dev;
+    /** the feature keys of the device already created in Gladys (kept on republish) */
+    this.existing = existing;
     this.p = dev.properties;
     this.boxUnit = unit;
     this.features = [];
@@ -521,6 +585,11 @@ class DeviceMapper {
     }
   }
 
+  /**
+   * A lock: locking is always allowed; unlocking only with allow_unlock, on the
+   * state read again from the box just before (refused when it is unknown or
+   * the lock is dead, nothing sent when it is already unlocked).
+   */
   lock() {
     const dev = this.dev;
     this.add(
@@ -529,13 +598,155 @@ class DeviceMapper {
       { category: C.LOCK, type: T.LOCK.BINARY },
       {
         props: ['value', 'secured'],
-        read: (p) => binaryOf(p.value ?? p.secured),
+        read: (p) => lockStateOf(p),
         write:
           has(dev, 'secure') && has(dev, 'unsecure')
-            ? (value) => [call(Number(value) ? 'secure' : 'unsecure')]
+            ? (value) => {
+                const wanted = strictNumber(value, 0, 1, dev.name);
+                if (wanted === 1) {
+                  return [call('secure')];
+                }
+                if (wanted !== 0) {
+                  throw new Error(`${dev.name}: invalid value ${value} (expected 0 or 1)`);
+                }
+                return [
+                  {
+                    ...call('unsecure'),
+                    guard: GUARDS.UNLOCK,
+                    decide: (p) => {
+                      deadCheck(dev.name, p);
+                      const state = lockStateOf(p);
+                      if (state === undefined) {
+                        throw new Error(
+                          `${dev.name}: lock state unknown, unlocking refused (command not sent)`,
+                        );
+                      }
+                      return state === 0 ? 'skip' : 'send';
+                    },
+                  },
+                ];
+              }
             : undefined,
       },
     );
+  }
+
+  /**
+   * A gate, a garage door or a motorized door: its state (read-only) and Open
+   * / Close / Stop push buttons. Close and Stop always work (they protect);
+   * Open needs allow_gates and is decided on the state read again from the box
+   * just before (refused when unknown or dead, nothing sent when already open).
+   * A device created when gates were still offered as shutters keeps its
+   * `state` / `position` features, with the same rule.
+   */
+  gate() {
+    const dev = this.dev;
+    const name = dev.name;
+    const openGuard = {
+      guard: GUARDS.GATES,
+      decide: (p) => {
+        deadCheck(name, p);
+        const state = gateStateOf(p);
+        if (state === undefined) {
+          throw new Error(`${name}: state unknown, opening refused (command not sent)`);
+        }
+        return state === 'open' ? 'skip' : 'send';
+      },
+    };
+    const openCall = has(dev, 'open')
+      ? { ...call('open'), ...openGuard }
+      : has(dev, 'setValue')
+        ? { ...call('setValue', 99), ...openGuard }
+        : undefined;
+    const closeCall = has(dev, 'close')
+      ? call('close')
+      : has(dev, 'setValue')
+        ? call('setValue', 0)
+        : undefined;
+    const stopCall = has(dev, 'stop') ? call('stop') : undefined;
+
+    if (hasProp(dev, 'state') || hasProp(dev, 'value')) {
+      this.add(
+        'gate',
+        'Gate',
+        { category: C.OPENING_SENSOR, type: T.SENSOR.BINARY, min: 0, max: 1 },
+        {
+          props: ['state', 'value'],
+          read: (p) => {
+            const state = gateStateOf(p);
+            if (state === undefined) {
+              return undefined;
+            }
+            return state === 'closed' ? OPENING_SENSOR_STATE.CLOSE : OPENING_SENSOR_STATE.OPEN;
+          },
+        },
+      );
+    }
+    const push = { category: C.BUTTON, type: T.BUTTON.PUSH, min: 0, max: 1, keepHistory: false };
+    const pressed = (value) => {
+      if (strictNumber(value, 0, 1, name) !== 1) {
+        throw new Error(`${name}: invalid value ${value} (a push is 1)`);
+      }
+    };
+    for (const [key, label, action] of [
+      ['open', 'Open', openCall],
+      ['close', 'Close', closeCall],
+      ['stop', 'Stop', stopCall],
+    ]) {
+      if (action) {
+        this.add(key, label, push, {
+          write: (value) => {
+            pressed(value);
+            return [action];
+          },
+        });
+      }
+    }
+
+    // Legacy features (a gate created as a shutter by 0.1.1): kept, same rule.
+    if (this.existing.has('position') && hasProp(dev, 'value')) {
+      this.add(
+        'position',
+        'Position',
+        { category: C.SHUTTER, type: T.SHUTTER.POSITION, min: 0, max: 100, unit: U.PERCENT },
+        {
+          props: ['value'],
+          read: (p) => positionOf(p.value),
+          write: has(dev, 'setValue')
+            ? (value) => {
+                const level = toLevel(strictNumber(value, 0, 100, name));
+                return [
+                  level === 0 ? call('setValue', 0) : { ...call('setValue', level), ...openGuard },
+                ];
+              }
+            : undefined,
+        },
+      );
+    }
+    if (this.existing.has('state')) {
+      this.add(
+        'state',
+        'Open/close',
+        { category: C.SHUTTER, type: T.SHUTTER.STATE, min: -1, max: 1, keepHistory: false },
+        {
+          write: (value) => {
+            const wanted = strictNumber(value, -1, 1, name);
+            const action =
+              wanted === COVER_STATE.OPEN
+                ? openCall
+                : wanted === COVER_STATE.CLOSE
+                  ? closeCall
+                  : wanted === COVER_STATE.STOP
+                    ? stopCall
+                    : undefined;
+            if (!action) {
+              throw new Error(`${name} cannot do ${value}`);
+            }
+            return [action];
+          },
+        },
+      );
+    }
   }
 
   setpoint(key, name, { props, actions, minProp, maxProp }) {
@@ -851,6 +1062,9 @@ class DeviceMapper {
       case 'lock':
         this.lock();
         break;
+      case 'gate':
+        this.gate();
+        break;
       case 'thermostat':
         this.thermostat();
         break;
@@ -926,7 +1140,8 @@ class DeviceMapper {
 /**
  * @param {object} dev a device of src/inventory.js
  * @param {{ unit?: 'C' | 'F' }} [box] the temperature unit of the box
+ * @param {Set<string>} [existing] the feature keys of the device already created in Gladys
  */
-export function mapDevice(dev, box) {
-  return new DeviceMapper(dev, box).map();
+export function mapDevice(dev, box, existing) {
+  return new DeviceMapper(dev, box, existing).map();
 }

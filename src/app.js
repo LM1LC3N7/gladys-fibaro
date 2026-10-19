@@ -17,8 +17,8 @@ import { LIMITS, SCENE_TRIGGERS, TIMINGS } from './constants.js';
 import { buildModel, emptyModel } from './devices.js';
 import { FibaroError, createClient } from './fibaro.js';
 import { T } from './i18n.js';
-import { buildInventory } from './inventory.js';
-import { decodeKeyAttribute } from './mapping.js';
+import { buildInventory, normalizeDevice } from './inventory.js';
+import { GUARDS, decodeKeyAttribute } from './mapping.js';
 import { detectModel, looksLikeInfo } from './model.js';
 import { StatePublisher } from './publisher.js';
 import { flag, toBool, toNumber } from './values.js';
@@ -371,7 +371,7 @@ export class FibaroApp {
     if (!this.current(generation)) {
       return;
     }
-    const model = buildModel((id) => this.idsOf(id), inventory, this.box);
+    const model = buildModel((id) => this.idsOf(id), inventory, this.box, this.created);
     this.inventory = inventory;
     this.model = model;
     this.props = new Map(inventory.devices.map((d) => [d.id, d.properties]));
@@ -536,7 +536,11 @@ export class FibaroApp {
     }
     // The value is checked by the writer before anything is sent.
     const calls = writer.write(value, this.props.get(writer.fibaroId) ?? {});
-    const send = () => this.sendCalls(client, writer.fibaroId, calls);
+    for (const c of calls) {
+      this.checkGuard(c); // refused at once when the option is off
+    }
+    const generation = this.generation;
+    const send = () => this.sendCalls(client, writer.fibaroId, calls, generation);
     // A stop is never held behind a previous command of the device.
     const urgent = calls.length > 0 && calls.every((c) => c.name === 'stop');
     await (urgent ? send() : this.serialize(writer.fibaroId, send));
@@ -572,21 +576,93 @@ export class FibaroApp {
     return next;
   }
 
-  /** The actions of one command; a timeout or a cut connection may have reached the box. */
-  async sendCalls(client, fibaroId, calls) {
-    for (const { name, args } of calls) {
+  /** Refuses a guarded action (gate opening, unlocking) when its option is off. */
+  checkGuard({ name, guard }) {
+    if (guard && this.config[guard] !== true) {
+      const option = guard === GUARDS.GATES ? 'allow_gates' : 'allow_unlock';
+      throw new Error(
+        `${name} refused, not sent: turn on the "${option}" option of the Fibaro integration to allow it`,
+      );
+    }
+  }
+
+  /**
+   * The properties of one device, read again from the box (never merged with
+   * the memory for a decision). They also refresh the states in Gladys.
+   */
+  async reread(client, fibaroId) {
+    const raw = await client.device(fibaroId, { timeout: TIMINGS.rereadTimeout });
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new FibaroError('format', `unexpected answer for device ${fibaroId}`);
+    }
+    const fresh = normalizeDevice(raw).properties;
+    const props = this.props.get(fibaroId);
+    if (props) {
+      Object.assign(props, fresh);
+      this.readDevice(fibaroId);
+    }
+    return fresh;
+  }
+
+  /** After a command without confirmation: the device is read again shortly after. */
+  confirmLater(client, fibaroId, generation) {
+    const timer = this.timers.setTimeout(() => {
+      if (this.current(generation) && this.client === client) {
+        this.reread(client, fibaroId).catch((err) =>
+          this.logger.warn(`Reading device ${fibaroId} again failed: ${err.message}`),
+        );
+      }
+    }, TIMINGS.confirmReread);
+    timer?.unref?.();
+  }
+
+  /**
+   * The actions of one command. A guarded one (gate opening, unlocking) is
+   * decided on the state read again from the box, and its option and the
+   * running configuration are checked again right before it is sent.
+   */
+  async sendCalls(client, fibaroId, calls, generation = this.generation) {
+    for (const c of calls) {
+      const { name, args } = c;
+      if (c.decide) {
+        this.checkGuard(c);
+        let fresh;
+        try {
+          fresh = await this.reread(client, fibaroId);
+        } catch (err) {
+          throw new Error(
+            `${name} not sent: device ${fibaroId} could not be read again (${err.message})`,
+            { cause: err },
+          );
+        }
+        if (c.decide(fresh) === 'skip') {
+          continue; // already in the state asked: nothing to send
+        }
+      }
+      if (!this.current(generation) || this.client !== client) {
+        throw new Error(`${name} not sent: the integration restarted meanwhile`);
+      }
+      this.checkGuard(c);
       try {
         await client.callAction(
           { api: this.box.api, deviceId: fibaroId, name, args },
-          { timeout: TIMINGS.commandTimeout },
+          { timeout: c.decide ? TIMINGS.sensitiveCommandTimeout : TIMINGS.commandTimeout },
         );
       } catch (err) {
-        const maybeSent =
-          err?.kind === 'timeout' ||
-          (err?.kind === 'network' && /reset|closed/.test(String(err.message)));
-        if (maybeSent) {
+        // A timeout: the request left, the box may have run it. A cut
+        // connection: it may have reached the box. Anything else (refused,
+        // unreachable, HTTP error) means it was not run.
+        if (err?.kind === 'timeout') {
+          this.confirmLater(client, fibaroId, generation);
           throw new Error(
-            `${name} sent to device ${fibaroId}, without confirmation from the box (${err.message}): its state will follow`,
+            `${name} sent to device ${fibaroId}, without confirmation from the box (${err.message}): the device is read again in a few seconds`,
+            { cause: err },
+          );
+        }
+        if (err?.kind === 'network' && /reset|closed/.test(String(err.message))) {
+          this.confirmLater(client, fibaroId, generation);
+          throw new Error(
+            `${name} may have reached device ${fibaroId}, without confirmation from the box (${err.message}): the device is read again in a few seconds`,
             { cause: err },
           );
         }
@@ -663,7 +739,7 @@ export class FibaroApp {
       const box = await this.readBox(client, { timeout });
       const inventory = await this.readInventory(client, timeout);
       const scenes = await client.scenes({ timeout }).catch(() => []);
-      const model = buildModel((id) => this.idsOf(id), inventory, box);
+      const model = buildModel((id) => this.idsOf(id), inventory, box, this.created);
       return T.test.ok({
         model: box,
         devices: model.devices.length,
