@@ -79,6 +79,10 @@ export const ROLES = {
   'com.fibaro.baseShutter': 'cover',
   'com.fibaro.FGR': 'cover',
   'com.fibaro.FGRM222': 'cover',
+  'com.fibaro.FGR221': 'cover',
+  'com.fibaro.FGR223': 'cover',
+  'com.fibaro.FGWR111': 'cover',
+  'com.fibaro.remoteBaseShutter': 'cover',
   'com.fibaro.doorLock': 'lock',
   'com.fibaro.hvac': 'thermostat',
   'com.fibaro.hvacSystem': 'thermostat',
@@ -139,6 +143,49 @@ const hasProp = (dev, prop) => dev.properties[prop] !== undefined && dev.propert
 const hasInterface = (dev, name, prop) =>
   dev.interfaces ? dev.interfaces.includes(name) && hasProp(dev, prop) : hasProp(dev, prop);
 
+// --- Shutters ------------------------------------------------------------------
+
+/**
+ * Types of roller shutters, blinds and awnings: rollerShutter, baseShutter,
+ * remoteBaseShutter (HC3, Yubii Home), FGR (HC2 base type), FGRM222, FGR221,
+ * FGR223 (Roller Shutter 2 and 3), FGWR111 (Walli Roller Shutter). Not the
+ * FGRGBW controllers.
+ */
+const SHUTTER_TYPE = /shutter|blind|curtain|awning|^com\.fibaro\.FGR(M?\d|$)|^com\.fibaro\.FGWR/i;
+/** Gates, garage doors, locks and valves: never offered as a shutter by this path. */
+const NOT_A_SHUTTER = /barrier|gate|garage|door|lock|valve/i;
+/** HC3 / Yubii `deviceRole` of a shutter module (the role picked in the box). */
+const SHUTTER_ROLES = new Set([
+  'BlindsWithPositioning',
+  'BlindsWithoutPositioning',
+  'VenetianBlinds',
+  'RollerShutter',
+  'Awning',
+  'Curtain',
+]);
+const GATE_ROLES = new Set(['Gate', 'GarageDoor']);
+
+/**
+ * A roller shutter, a blind or an awning: by its type or base type, by the
+ * role picked in the box, or by its open / close actions. Checked before the
+ * other roles, so a shutter is never a switch nor a dimmer (an "everything
+ * off" of a voice assistant would close or open it).
+ */
+export function isShutter(dev) {
+  const types = [dev.type, dev.baseType].filter(Boolean);
+  if (types.some((t) => NOT_A_SHUTTER.test(t)) || GATE_ROLES.has(dev.properties.deviceRole)) {
+    return false;
+  }
+  if (has(dev, 'secure')) {
+    return false;
+  }
+  return (
+    types.some((t) => SHUTTER_TYPE.test(t)) ||
+    SHUTTER_ROLES.has(dev.properties.deviceRole) ||
+    (has(dev, 'open') && has(dev, 'close'))
+  );
+}
+
 const isThermostat = (dev) =>
   hasProp(dev, 'thermostatMode') ||
   hasProp(dev, 'heatingThermostatSetpoint') ||
@@ -146,6 +193,9 @@ const isThermostat = (dev) =>
 
 /** The role of a device, or undefined when nothing fits. */
 export function roleOf(dev) {
+  if (isShutter(dev)) {
+    return 'cover';
+  }
   let role = ROLES[dev.type] ?? ROLES[dev.baseType];
   if (role === 'binary-sensor') {
     role = SENSOR_ROLES[dev.properties.deviceRole] ?? role;
@@ -265,6 +315,23 @@ const positionOf = (raw) => {
 
 /** A Gladys 0–100 level -> the Fibaro 0–99 one. */
 const toLevel = (value) => clamp(Math.round(Number(value) || 0), 0, 99);
+
+/**
+ * A command value, checked strictly: a finite number (or numeric text) within
+ * [min, max]. null, '', true or NaN are refused, never taken for 0.
+ */
+export function strictNumber(value, min, max, name = 'The device') {
+  const n =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(n) || n < min || n > max) {
+    throw new Error(`${name}: invalid value ${JSON.stringify(value)} (expected ${min} to ${max})`);
+  }
+  return n;
+}
 
 const decimalOf = (raw) => toNumber(raw);
 
@@ -405,9 +472,17 @@ class DeviceMapper {
     }
   }
 
+  /**
+   * A shutter: its position (0–100 %, when it reports one) and open / close /
+   * stop, always in the `shutter` category. The values sent are checked
+   * strictly before anything leaves: null, '' or a number out of range are
+   * refused, never read as 0 (which would close the shutter).
+   */
   cover() {
     const dev = this.dev;
-    if (hasProp(dev, 'value') && has(dev, 'setValue')) {
+    const canSet = has(dev, 'setValue');
+    // A position-less shutter (baseShutter, one-way radio motor) has no numeric value.
+    if (hasProp(dev, 'value') && (canSet || toNumber(this.p.value) !== undefined)) {
       this.add(
         'position',
         'Position',
@@ -415,11 +490,13 @@ class DeviceMapper {
         {
           props: ['value'],
           read: (p) => positionOf(p.value),
-          write: (value) => [call('setValue', toLevel(value))],
+          write: canSet
+            ? (value) => [call('setValue', toLevel(strictNumber(value, 0, 100, dev.name)))]
+            : undefined,
         },
       );
     }
-    const canMove = (has(dev, 'open') && has(dev, 'close')) || has(dev, 'setValue');
+    const canMove = (has(dev, 'open') && has(dev, 'close')) || canSet;
     if (canMove) {
       this.add(
         'state',
@@ -427,7 +504,7 @@ class DeviceMapper {
         { category: C.SHUTTER, type: T.SHUTTER.STATE, min: -1, max: 1, keepHistory: false },
         {
           write: (value) => {
-            const wanted = Number(value);
+            const wanted = strictNumber(value, -1, 1, dev.name);
             if (wanted === COVER_STATE.OPEN) {
               return [has(dev, 'open') ? call('open') : call('setValue', 99)];
             }

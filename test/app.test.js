@@ -323,7 +323,7 @@ test('the connection test and the scene list', async (t) => {
   assert.equal(ack.success, true);
   assert.equal(
     ack.data.message.en,
-    'Connection OK, Home Center 3 (firmware 5.150.25, API v5): 27 devices, 3 scenes. 19 devices offered in Discovery, 8 left out (1 disabled, 4 hidden, 2 plugins or Quick Apps, 1 with nothing to offer).',
+    'Connection OK, Home Center 3 (firmware 5.150.25, API v5): 27 devices, 3 scenes. 19 devices offered in Discovery, 3 technical nodes of the box not shown (normal: their endpoints are the devices), 5 left out (1 disabled, 1 hidden, 2 plugins or Quick Apps, 1 with nothing to offer: com.fibaro.zwaveDevice (com.fibaro.device)).',
   );
   assert.match(
     ack.data.message.fr,

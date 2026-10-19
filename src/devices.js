@@ -39,6 +39,8 @@ export function emptyModel() {
     deviceIds: new Map(),
     /** devices read, and left out because nothing maps / over the limit */
     counts: { read: 0, empty: 0, overflow: 0 },
+    /** "type (baseType)" of the devices left out because nothing maps (for the test button) */
+    emptyTypes: [],
   };
 }
 
@@ -55,6 +57,10 @@ export function buildModel(idsOf, inventory, box) {
     const mapped = mapDevice(dev, box);
     if (mapped.features.length === 0) {
       model.counts.empty += 1;
+      const kind = dev.baseType ? `${dev.type} (${dev.baseType})` : dev.type || '?';
+      if (!model.emptyTypes.includes(kind)) {
+        model.emptyTypes.push(kind);
+      }
       continue;
     }
     if (model.devices.length >= LIMITS.devices) {

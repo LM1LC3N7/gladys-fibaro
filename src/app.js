@@ -67,6 +67,8 @@ export class FibaroApp {
     this.warned = new Set();
     /** times of the scene events of the last minute */
     this.sceneEvents = [];
+    /** Fibaro id -> the tail of its command queue */
+    this.queues = new Map();
     this.publisher = new StatePublisher({ gladys, logger, now, timers });
   }
 
@@ -386,7 +388,10 @@ export class FibaroApp {
         await this.gladys.publishDiscoveredDevices(model.devices);
         this.publishedDevices = json;
         this.logger.info(
-          `${model.devices.length} devices offered in Discovery (${inventory.devices.length} enabled and visible Fibaro devices)`,
+          `${model.devices.length} devices offered in Discovery (${inventory.devices.length} enabled and visible Fibaro devices)` +
+            (model.emptyTypes.length > 0
+              ? `; nothing to offer for: ${model.emptyTypes.join(', ')}`
+              : ''),
         );
       } catch (err) {
         this.logger.error(`Publishing the discovered devices failed: ${err.message}`);
@@ -529,13 +534,64 @@ export class FibaroApp {
     if (!writer) {
       throw new Error(`${feature.name ?? feature.external_id} cannot be controlled`);
     }
+    // The value is checked by the writer before anything is sent.
     const calls = writer.write(value, this.props.get(writer.fibaroId) ?? {});
-    for (const { name, args } of calls) {
-      await client.callAction({ api: this.box.api, deviceId: writer.fibaroId, name, args });
-    }
+    const send = () => this.sendCalls(client, writer.fibaroId, calls);
+    // A stop is never held behind a previous command of the device.
+    const urgent = calls.length > 0 && calls.every((c) => c.name === 'stop');
+    await (urgent ? send() : this.serialize(writer.fibaroId, send));
     this.logger.debug(`${calls.map((c) => c.name).join(', ')} sent to device ${writer.fibaroId}`);
     if (this.model.optimistic.has(feature.external_id)) {
       this.record(feature.external_id, Number(value));
+    }
+  }
+
+  /**
+   * Runs the commands of one device one after the other. A command that would
+   * wait too long behind the previous one is refused before it is sent (Gladys
+   * stops waiting after 5 s).
+   */
+  serialize(fibaroId, fn) {
+    const queuedAt = this.now();
+    const previous = this.queues.get(fibaroId) ?? Promise.resolve();
+    const next = previous.then(() => {
+      if (this.now() - queuedAt > TIMINGS.commandQueueWait) {
+        throw new Error(
+          `Device ${fibaroId} is busy with a previous command: this one was not sent, try again`,
+        );
+      }
+      return fn();
+    });
+    const tail = next.catch(() => {});
+    this.queues.set(fibaroId, tail);
+    tail.then(() => {
+      if (this.queues.get(fibaroId) === tail) {
+        this.queues.delete(fibaroId);
+      }
+    });
+    return next;
+  }
+
+  /** The actions of one command; a timeout or a cut connection may have reached the box. */
+  async sendCalls(client, fibaroId, calls) {
+    for (const { name, args } of calls) {
+      try {
+        await client.callAction(
+          { api: this.box.api, deviceId: fibaroId, name, args },
+          { timeout: TIMINGS.commandTimeout },
+        );
+      } catch (err) {
+        const maybeSent =
+          err?.kind === 'timeout' ||
+          (err?.kind === 'network' && /reset|closed/.test(String(err.message)));
+        if (maybeSent) {
+          throw new Error(
+            `${name} sent to device ${fibaroId}, without confirmation from the box (${err.message}): its state will follow`,
+            { cause: err },
+          );
+        }
+        throw err;
+      }
     }
   }
 
@@ -615,7 +671,9 @@ export class FibaroApp {
         disabled: inventory.skipped.disabled,
         hidden: inventory.skipped.hidden,
         plugins: inventory.skipped.plugins,
+        nodes: inventory.skipped.nodes,
         empty: model.counts.empty,
+        emptyTypes: model.emptyTypes,
         scenes: scenes.length,
       });
     });

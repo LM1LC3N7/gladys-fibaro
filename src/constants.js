@@ -45,6 +45,14 @@ export const TIMINGS = {
   /** One API request (the inventory ones get `inventoryTimeout`). */
   requestTimeout: 15_000,
   inventoryTimeout: 60_000,
+  /**
+   * A device action: Gladys waits 5 s for the answer of a command, so the
+   * whole command (wait behind the previous one of the device + the action)
+   * stays within ~3.5 s: never sent after Gladys already showed a failure.
+   */
+  commandTimeout: 3000,
+  /** Longest wait behind the previous command of the same device; refused (not sent) beyond. */
+  commandQueueWait: 500,
   /** One request of the connection test (the button waits 90 s). */
   testTimeout: 25_000,
   /**

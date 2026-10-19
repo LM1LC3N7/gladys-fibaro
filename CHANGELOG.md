@@ -10,6 +10,26 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Shutters (issue #4): every Fibaro or Yubii shutter is offered as a Gladys
+  shutter (position, open, close, stop), whatever its type: Roller Shutter 3
+  (FGR223), Walli Roller Shutter (FGWR111), Roller Shutter 1/2 (FGR221,
+  FGRM222), `rollerShutter`, `baseShutter`, `remoteBaseShutter`, a module set
+  to a blinds role in the box, or any device with open and close actions. A
+  shutter is never offered as a switch or a dimmer any more (a module the box
+  reports as a multilevel switch was one). A shutter that reports a position
+  but cannot be set to one keeps it as a read-only reading.
+- Shutter commands: the value is checked strictly before anything is sent
+  (an empty or invalid position is refused, never taken for 0, which closed
+  the shutter); the commands of one device run one after the other, a stop
+  never waits; an action times out after 3 s, within the 5 s Gladys waits;
+  a command that may have reached the box is reported "sent, without
+  confirmation", never "not sent".
+- "Test the connection" no longer counts the hidden technical nodes of the box
+  (the Z-Wave parent of each module) as devices left out, and names the
+  Fibaro types of the devices with nothing to offer.
+
 ### Changed
 
 - README: the store install note replaces the work-in-progress notice, and the

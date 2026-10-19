@@ -111,6 +111,23 @@ up to date at the end of every milestone.
 - Levels: Fibaro 0–99 → Gladys 0–100 (over 98 is 100), Gladys 100 → 99.
   Shutters: ≤ 5 % is closed, ≥ 95 % open (HA's calibration slack).
   Shutter `state` (open / close / stop) is write-only and optimistic.
+- Shutters (issue #4, 2026-10-20): `isShutter` is checked before every other
+  role: type or base type matching shutter / blind / curtain / awning / FGR
+  (not FGRGBW) / FGWR, an HC3 blinds `deviceRole`, or open + close actions;
+  never for a barrier, gate, garage, door, lock, valve or a `secure` action.
+  A shutter is never a switch nor a dimmer. Shutter control stays on by
+  default (Louis's off-by-default list is locks, alarms, valves). Command
+  values checked strictly (`strictNumber`), commands serialized per device
+  (a stop bypasses the queue), action timeout 3 s + queue wait 0.5 s, a
+  timeout after sending = "sent, without confirmation".
+- "Test the connection": hidden parents of other devices are "technical
+  nodes", not "left out"; the types of the devices with nothing to offer are
+  listed (5 at most).
+- To do (found while fixing #4): `com.fibaro.barrier` (gates, garage doors)
+  still falls back to a controllable shutter through its open / close
+  actions, and the lock `unsecure` is allowed by default: both go against
+  Louis's rule (opening off by default). Needs an option, a migration that
+  keeps the created features, and an `xhigh` review.
 - RGBW: color = RGB of `color` ("r,g,b,w"), `lastColorSet` when the
   controller is off (0,0,0,0); written with `setColor` and string arguments
   (as Home Assistant), white at 0.

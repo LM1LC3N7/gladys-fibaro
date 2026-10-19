@@ -107,4 +107,12 @@ protégées par un code PIN ne peuvent pas être lancées ainsi.
   machine Gladys la joint.
 - **Un appareil manque** : est-il activé et visible dans la box ? Est-ce un
   plugin ou une Quick App (activez l'option) ? Cliquez sur **Tester la
-  connexion** : le message compte les appareils écartés et pourquoi.
+  connexion** : le message compte les appareils écartés et pourquoi, et donne
+  le type Fibaro de ceux qui n'ont rien à proposer (à indiquer dans un
+  ticket). Les « nœuds techniques » qu'il cite sont normaux : un module Z-Wave
+  a un nœud parent caché dans la box, ses sous-appareils sont les appareils
+  proposés.
+- **Un volet** est toujours un volet dans Gladys (position, ouvrir, fermer,
+  stop), jamais un interrupteur. Les boutons S1/S2 d'un module volet avec
+  activation de scène apparaissent en plus comme fonctions « bouton » en
+  lecture seule : ils servent de déclencheurs de scène, pas à piloter le volet.

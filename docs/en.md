@@ -102,4 +102,11 @@ cannot be started this way.
   a remote access address), and check that the Gladys machine reaches it.
 - **A device is missing**: is it enabled and visible in the box? Is it a
   plugin or a Quick App (turn on the option)? Press **Test the connection**:
-  the message counts the devices left out and why.
+  the message counts the devices left out and why, and gives the Fibaro type
+  of those with nothing to offer (to quote in an issue). The "technical nodes"
+  it mentions are normal: a Z-Wave module has a hidden parent node in the box,
+  its endpoints are the devices offered.
+- **A shutter** is always a shutter in Gladys (position, open, close, stop),
+  never a switch. The S1/S2 keys of a shutter module with scene activation
+  also show up as read-only "button" features: they are scene triggers, not
+  the shutter controls.

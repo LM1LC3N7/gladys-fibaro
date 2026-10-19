@@ -59,7 +59,7 @@ export function normalizeDevice(raw) {
 /**
  * The devices Gladys may offer, with their room and section.
  * @param {{ devices: object[], rooms?: object[], sections?: object[], includePlugins?: boolean }} answers
- * @returns {{ devices: object[], skipped: { disabled: number, hidden: number, plugins: number }, total: number }}
+ * @returns {{ devices: object[], skipped: { disabled: number, hidden: number, plugins: number, nodes: number }, total: number }}
  */
 export function buildInventory({ devices, rooms = [], sections = [], includePlugins = false }) {
   const sectionNames = new Map(
@@ -82,8 +82,12 @@ export function buildInventory({ devices, rooms = [], sections = [], includePlug
     .filter((d) => d && d.id !== undefined && d.id !== null && !SYSTEM_TYPES.has(d.type))
     .map(normalizeDevice);
   const byId = new Map(all.map((d) => [d.id, d]));
+  const parents = new Set(all.map((d) => d.parentId).filter(Boolean));
   const kept = [];
-  const skipped = { disabled: 0, hidden: 0, plugins: 0 };
+  // nodes: the hidden ones that are the technical parent of other devices (a
+  // Z-Wave node and its endpoints): counted in `hidden` too, but never "left
+  // out" for the user, their endpoints are the devices.
+  const skipped = { disabled: 0, hidden: 0, plugins: 0, nodes: 0 };
   for (const device of all) {
     if (!device.enabled) {
       skipped.disabled += 1;
@@ -98,6 +102,9 @@ export function buildInventory({ devices, rooms = [], sections = [], includePlug
       const parent = byId.get(device.parentId);
       if (centralScene(device.properties).length === 0) {
         skipped.hidden += 1;
+        if (parents.has(device.id)) {
+          skipped.nodes += 1;
+        }
         continue;
       }
       if (parent && parent.name && !/^\d+(\.\d+)*$/.test(parent.name)) {

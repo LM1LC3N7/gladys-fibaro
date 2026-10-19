@@ -8,7 +8,7 @@ const names = (inventory) => inventory.devices.map((d) => `${d.id} ${d.name}`);
 test('a real HC2: users and controllers out, the Z-Wave node hidden, its endpoint kept', () => {
   const inventory = buildInventory({ devices: pyfibaro('device'), rooms: pyfibaro('room') });
   assert.deepEqual(names(inventory), ['13 Hifi']);
-  assert.deepEqual(inventory.skipped, { disabled: 0, hidden: 1, plugins: 0 });
+  assert.deepEqual(inventory.skipped, { disabled: 0, hidden: 1, plugins: 0, nodes: 1 });
   const [hifi] = inventory.devices;
   assert.equal(hifi.roomName, 'Wohnen');
   assert.equal(hifi.parentId, '12');
@@ -19,7 +19,7 @@ test('a real HC2: users and controllers out, the Z-Wave node hidden, its endpoin
 test('a real HC3: nothing but system devices and a weather plugin', () => {
   const inventory = buildInventory({ devices: pyfibaro('device-hc3') });
   assert.deepEqual(inventory.devices, []);
-  assert.deepEqual(inventory.skipped, { disabled: 0, hidden: 0, plugins: 1 });
+  assert.deepEqual(inventory.skipped, { disabled: 0, hidden: 0, plugins: 1, nodes: 0 });
 });
 
 test('the hidden central-scene endpoint of a switch is kept, named after its device', () => {
@@ -47,7 +47,7 @@ test('plugins and Quick Apps only when asked', () => {
 test('rooms and sections name the devices', () => {
   const inventory = buildInventory({ devices: hc3Devices(), rooms: ROOMS, sections: SECTIONS });
   assert.equal(inventory.total, 27);
-  assert.deepEqual(inventory.skipped, { disabled: 1, hidden: 4, plugins: 2 });
+  assert.deepEqual(inventory.skipped, { disabled: 1, hidden: 4, plugins: 2, nodes: 3 });
   assert.equal(inventory.devices.length, 20);
   const byId = new Map(inventory.devices.map((d) => [d.id, d]));
   assert.deepEqual([byId.get('70').roomName, byId.get('70').sectionName], ['Chambre', 'Étage']);

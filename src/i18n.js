@@ -105,23 +105,52 @@ export const T = {
     fr: 'La box signale cet appareil comme mort : il ne répond plus (pile, portée, alimentation).',
   },
   test: {
-    ok: ({ model, devices, read, disabled, hidden, plugins, empty, scenes }) => {
-      const left = disabled + hidden + plugins + empty;
+    /**
+     * nodes: the hidden technical parents (a Z-Wave node behind its endpoints),
+     * part of `hidden` but not "left out": their endpoints are the devices.
+     * emptyTypes: the types of the devices with nothing to offer (a few).
+     */
+    ok: ({
+      model,
+      devices,
+      read,
+      disabled,
+      hidden,
+      plugins,
+      empty,
+      scenes,
+      nodes = 0,
+      emptyTypes = [],
+    }) => {
+      const otherHidden = hidden - nodes;
+      const left = disabled + otherHidden + plugins + empty;
       const total = read + disabled + hidden + plugins;
+      const listed =
+        emptyTypes.length > 0
+          ? `${emptyTypes.slice(0, 5).join(', ')}${emptyTypes.length > 5 ? '…' : ''}`
+          : '';
+      const types = listed && `: ${listed}`;
+      const typesFr = listed && ` : ${listed}`;
       return {
         en:
           `Connection OK, ${model.name} (firmware ${model.version || '?'}, API v${model.api}): ` +
           `${plural(total, 'device', 'devices')}, ${plural(scenes, 'scene', 'scenes')}. ` +
           `${plural(devices, 'device', 'devices')} offered in Discovery` +
+          (nodes > 0
+            ? `, ${plural(nodes, 'technical node', 'technical nodes')} of the box not shown (normal: their endpoints are the devices)`
+            : '') +
           (left > 0
-            ? `, ${left} left out (${disabled} disabled, ${hidden} hidden, ${plugins} plugins or Quick Apps, ${empty} with nothing to offer).`
+            ? `, ${left} left out (${disabled} disabled, ${otherHidden} hidden, ${plugins} plugins or Quick Apps, ${empty} with nothing to offer${types}).`
             : '.'),
         fr:
           `Connexion OK, ${model.name} (firmware ${model.version || '?'}, API v${model.api}) : ` +
           `${plural(total, 'appareil', 'appareils')}, ${plural(scenes, 'scène', 'scènes')}. ` +
           `${plural(devices, 'appareil proposé', 'appareils proposés')} dans Découverte` +
+          (nodes > 0
+            ? `, ${plural(nodes, 'nœud technique', 'nœuds techniques')} de la box non affiché${nodes === 1 ? '' : 's'} (normal : leurs sous-appareils sont les appareils)`
+            : '') +
           (left > 0
-            ? `, ${left} écarté${left === 1 ? '' : 's'} (${disabled} désactivé${disabled === 1 ? '' : 's'}, ${hidden} masqué${hidden === 1 ? '' : 's'}, ${plugins} plugins ou Quick Apps, ${empty} sans rien à proposer).`
+            ? `, ${left} écarté${left === 1 ? '' : 's'} (${disabled} désactivé${disabled === 1 ? '' : 's'}, ${otherHidden} masqué${otherHidden === 1 ? '' : 's'}, ${plugins} plugins ou Quick Apps, ${empty} sans rien à proposer${typesFr}).`
             : '.'),
       };
     },

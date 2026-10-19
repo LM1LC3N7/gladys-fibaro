@@ -248,18 +248,19 @@ export function createClient({
     /**
      * Runs an action of a device.
      * @param {{ api: 4 | 5, deviceId: number|string, name: string, args?: Array }} action
+     * @param {{ timeout?: number }} [options]
      */
-    callAction({ api, deviceId, name, args = [] }) {
+    callAction({ api, deviceId, name, args = [] }, { timeout } = {}) {
       if (api >= 5) {
         return send(
           'POST',
           `/devices/${encodeURIComponent(deviceId)}/action/${encodeURIComponent(name)}`,
-          { payload: { args }, json: false },
+          { payload: { args }, json: false, timeout },
         );
       }
       const query = new URLSearchParams({ deviceID: String(deviceId), name });
       args.forEach((arg, i) => query.set(`arg${i + 1}`, String(arg)));
-      return send('GET', `/callAction?${query}`, { json: false });
+      return send('GET', `/callAction?${query}`, { json: false, timeout });
     },
 
     /**

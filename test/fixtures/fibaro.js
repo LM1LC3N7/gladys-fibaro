@@ -293,6 +293,86 @@ export function hc2Devices() {
   ];
 }
 
+const SHUTTER_ACTIONS = [
+  'open',
+  'close',
+  'stop',
+  'setValue',
+  'startLevelIncrease',
+  'startLevelDecrease',
+  'stopLevelChange',
+  'reconfigure',
+];
+
+/**
+ * Shutter modules of an HC3 / Yubii Home and an HC2 (issue #4): the types and
+ * base types of the Fibaro modules (FGR223 Roller Shutter 3, FGWR111 Walli
+ * Roller Shutter, FGRM222 / FGR221 Roller Shutter 2 and 1), a radio motor
+ * without position (remoteBaseShutter), a shutter module the box reports as
+ * a multilevel switch, and a gate. Written after the HC3 API documentation
+ * and the Home Assistant fixtures, not dumped from a real box.
+ */
+export function shutterDevices() {
+  const strings = (props) =>
+    Object.fromEntries(Object.entries(props).map(([k, v]) => [k, String(v)]));
+  return [
+    node(200, 'Volet séjour', 220),
+    device(201, 'Volet séjour', 'com.fibaro.FGR223', 'com.fibaro.rollerShutter', {
+      room: 220,
+      parent: 200,
+      interfaces: ['energy', 'levelChange', 'power', 'zwave', 'zwaveCentralScene'],
+      properties: {
+        value: 0,
+        state: 'Closed',
+        deviceRole: 'BlindsWithPositioning',
+        power: 0,
+        energy: 0.42,
+        centralSceneSupport: [
+          { keyAttributes: KEYS, keyId: 1 },
+          { keyAttributes: KEYS, keyId: 2 },
+        ],
+      },
+      actions: SHUTTER_ACTIONS,
+    }),
+    node(210, 'Volet chambre', 222),
+    device(211, 'Volet chambre', 'com.fibaro.FGWR111', 'com.fibaro.rollerShutter', {
+      room: 222,
+      parent: 210,
+      interfaces: ['energy', 'levelChange', 'power', 'zwave'],
+      properties: { value: 99, state: 'Open', deviceRole: 'BlindsWithPositioning', power: 0 },
+      actions: SHUTTER_ACTIONS,
+    }),
+    // A one-way radio motor: open / close / stop, no position, no state.
+    device(220, 'Volet cuisine', 'com.fibaro.remoteBaseShutter', 'com.fibaro.baseShutter', {
+      room: 221,
+      interfaces: [],
+      properties: { deviceRole: 'BlindsWithoutPositioning' },
+      actions: ['open', 'close', 'stop'],
+    }),
+    // A shutter module whose type the box reports as a multilevel switch.
+    device(230, 'Volet bureau', 'com.acme.shutterModule', 'com.fibaro.multilevelSwitch', {
+      room: 222,
+      interfaces: ['levelChange', 'zwave'],
+      properties: { value: 40, deviceRole: 'BlindsWithPositioning' },
+      actions: ['turnOn', 'turnOff', 'setValue', 'open', 'close', 'stop'],
+    }),
+    // An HC2: every property is a string.
+    {
+      ...device(240, 'Volet garage', 'com.fibaro.FGR221', 'com.fibaro.rollerShutter', {
+        room: 221,
+        actions: ['open', 'close', 'stop', 'setValue'],
+      }),
+      properties: strings({ dead: false, value: 25 }),
+    },
+    // A gate driven by a shutter module: never a shutter by the shutter path.
+    device(250, 'Portail', 'com.fibaro.barrier', 'com.fibaro.actor', {
+      room: 223,
+      properties: { value: 'Closed', deviceRole: 'Gate' },
+      actions: ['open', 'close', 'stop'],
+    }),
+  ];
+}
+
 export const SCENES_HC3 = [
   { id: 10, name: 'Bonne nuit', type: 'scenario', roomId: 219, hidden: false, enabled: true },
   { id: 11, name: 'Départ', type: 'lua', roomId: 219, hidden: false, enabled: true },
