@@ -1,6 +1,6 @@
 {
   "name": "gladys-fibaro",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Gladys Assistant external integration for Fibaro Home Center 2, Home Center 3 and Nice Yubii Home boxes. Unofficial, not affiliated with Fibaro or Nice.",
   "type": "module",

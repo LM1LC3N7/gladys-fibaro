@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-20
+
 ### Fixed
 
 - Shutters (issue #4): every Fibaro or Yubii shutter is offered as a Gladys
@@ -100,5 +102,6 @@ the notes of the version's GitHub Release.
 - Sensor readings throttled to a configurable interval, all states within the
   Gladys rate limit.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-fibaro/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/LM1LC3N7/gladys-fibaro/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/LM1LC3N7/gladys-fibaro/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LM1LC3N7/gladys-fibaro/releases/tag/v0.1.1
