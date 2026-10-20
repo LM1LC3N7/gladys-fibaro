@@ -44,6 +44,8 @@ scène lance une **scène Fibaro**. Non officiel, sans lien avec Fibaro ou Nice.
 | Tête thermostatique, thermostat, climatisation                        | un thermostat : consigne, mode (arrêt, chauffage, froid, auto), état de chauffe  |
 | Serrure                                                               | une serrure : verrouiller toujours ; déverrouiller seulement avec l'option       |
 | Portail, porte de garage, porte motorisée (barrier, rôle Portail)     | son état, et des boutons Ouvrir, Fermer, Stop ; Ouvrir seulement avec l'option   |
+| Portail sur un relais (rôle Portail ou Porte de garage)               | le contact du relais, et un bouton Ouvrir (impulsion) seulement avec l'option    |
+| Vanne d'eau ou de gaz (type valve, rôle Vanne)                        | son état, et des boutons Ouvrir et Fermer, tous deux seulement avec l'option     |
 | Capteur d'ouverture, de mouvement, d'inondation, de fumée, de CO      | le capteur Gladys correspondant                                                  |
 | Capteurs de température, luminosité, humidité, puissance, énergie     | le capteur Gladys correspondant                                                  |
 | Niveau de pile                                                        | une fonctionnalité batterie                                                      |
@@ -54,18 +56,36 @@ Chaque appareil porte le nom de sa pièce, comme dans la box : `Prise murale
 téléphones de la box, et les appareils des plugins (HC2) et Quick Apps (HC3),
 sauf si vous activez **Proposer aussi les plugins et Quick Apps**.
 
-**Ouverture et déverrouillage désactivés par défaut.** Gladys ferme et
+**Ouverture, déverrouillage et vannes désactivés par défaut.** Gladys ferme et
 arrête un portail, une porte de garage ou une porte motorisée, et verrouille
 une serrure, mais ne les ouvre ni ne les déverrouille tant que vous n'avez pas
 coché **Autoriser l'ouverture des portails, portes de garage et portes**
 (`allow_gates`) ou **Autoriser le déverrouillage des serrures**
-(`allow_unlock`). Sinon la commande est refusée avec un message, sans rien
-envoyer. Une fois l'option cochée, Gladys relit l'état de l'appareil dans la
-box juste avant : elle refuse si l'état est inconnu ou si l'appareil est
-signalé mort, et n'envoie rien s'il est déjà ouvert ou déverrouillé. Un
-portail ajouté avec la version 0.1.1 (alors proposé comme un volet) garde ses
-fonctions, avec la même règle. Jamais testé sur un vrai portail ni une vraie
-serrure.
+(`allow_unlock`). Une vanne d'eau ou de gaz n'est ni ouverte ni fermée
+(ouvrir peut inonder, fermer coupe l'eau) tant que **Autoriser l'ouverture et
+la fermeture des vannes** (`allow_valves`) n'est pas coché. Sinon la commande
+est refusée avec un message, sans rien envoyer. Une fois l'option cochée,
+Gladys relit l'état de l'appareil dans la box juste avant : elle refuse si
+l'état est inconnu ou si l'appareil est signalé mort, et n'envoie rien s'il est
+déjà clairement ouvert (ou déverrouillé, ou dans l'état demandé pour une
+vanne). Un Stop, un Fermer ou un Verrouiller part tout de suite et annule une
+ouverture ou un déverrouillage encore en attente. Un portail piloté par un
+simple relais n'a qu'un bouton Ouvrir (une impulsion) : Gladys ne peut pas
+savoir s'il est ouvert, elle vérifie seulement qu'il répond. Un portail piloté
+par un module de volet reste un volet pour Gladys : réglez son rôle sur Portail
+ou Porte de garage dans la box. Jamais testé sur un vrai portail, une vraie
+serrure ni une vraie vanne.
+
+**Après la mise à jour depuis 0.1.1.** Les appareils déjà ajoutés gardent
+leurs fonctions, mais une commande d'ouverture, de déverrouillage ou de vanne
+est refusée tant que l'option correspondante est désactivée : les scènes 0.1.1
+qui ouvraient un portail, déverrouillaient une serrure ou pilotaient une vanne
+échouent alors avec ce message. Un volet ajouté en 0.1.1 comme interrupteur ou
+variateur apparaît dans Découverte avec « Mettre à jour » : ce bouton remplace
+ses fonctions Marche/arrêt et Niveau par Position et Ouvrir/fermer, et leur
+historique est supprimé. Un portail ajouté en 0.1.1 comme volet garde ses
+fonctions volet, avec la même règle ; un portail ajouté comme interrupteur
+perd cette fonction (et son historique) à la mise à jour.
 
 Un appareil que la box signale comme **mort** (il ne répond plus : pile,
 portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à

@@ -22,11 +22,17 @@ export class FibaroError extends Error {
   /**
    * @param {'auth'|'forbidden'|'notfound'|'network'|'certificate'|'timeout'|'http'|'redirect'|'format'|'size'} kind
    */
-  constructor(kind, message, { status } = {}) {
+  /**
+   * @param {{ status?: number, sent?: boolean }} [details] sent: whether the
+   *   request was fully written to the box before the failure (a timeout or a
+   *   cut connection after that may have been run by the box)
+   */
+  constructor(kind, message, { status, sent } = {}) {
     super(message);
     this.name = 'FibaroError';
     this.kind = kind;
     this.status = status;
+    this.sent = sent;
   }
 }
 
@@ -79,6 +85,17 @@ export function httpRequest(
     const lib = target.protocol === 'https:' ? https : http;
     let timer;
     let settled = false;
+    // The request is written to the socket only once the agent gives it one:
+    // a request still queued in the agent when it times out never left.
+    let written = false;
+    /** The failure, marked with whether the request had fully left. */
+    const failed = (err) => {
+      const e = networkError(err);
+      if (e.sent === undefined) {
+        e.sent = written;
+      }
+      return e;
+    };
     /** The first outcome wins: a destroyed request may still end or fail after it. */
     const settle = (fn, value) => {
       if (!settled) {
@@ -122,17 +139,22 @@ export function httpRequest(
             body: Buffer.concat(chunks).toString('utf8'),
           });
         });
-        res.on('error', (err) => settle(reject, networkError(err)));
+        res.on('error', (err) => settle(reject, failed(err)));
       },
     );
     timer = setTimeout(() => {
       settle(
         reject,
-        new FibaroError('timeout', `no answer within ${Math.round(timeout / 1000)} s`),
+        new FibaroError('timeout', `no answer within ${Math.round(timeout / 1000)} s`, {
+          sent: written,
+        }),
       );
       req.destroy();
     }, timeout);
-    req.on('error', (err) => settle(reject, networkError(err)));
+    req.on('finish', () => {
+      written = true;
+    });
+    req.on('error', (err) => settle(reject, failed(err)));
     req.end(body);
   });
 }

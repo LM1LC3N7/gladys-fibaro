@@ -18,7 +18,7 @@ import { buildModel, emptyModel } from './devices.js';
 import { FibaroError, createClient } from './fibaro.js';
 import { T } from './i18n.js';
 import { buildInventory, normalizeDevice } from './inventory.js';
-import { GUARDS, decodeKeyAttribute } from './mapping.js';
+import { GUARD_OPTIONS, decodeKeyAttribute } from './mapping.js';
 import { detectModel, looksLikeInfo } from './model.js';
 import { StatePublisher } from './publisher.js';
 import { flag, toBool, toNumber } from './values.js';
@@ -69,6 +69,8 @@ export class FibaroApp {
     this.sceneEvents = [];
     /** Fibaro id -> the tail of its command queue */
     this.queues = new Map();
+    /** Fibaro id -> count of protective commands (cancels the guarded ones waiting) */
+    this.cancels = new Map();
     this.publisher = new StatePublisher({ gladys, logger, now, timers });
   }
 
@@ -534,26 +536,32 @@ export class FibaroApp {
     if (!writer) {
       throw new Error(`${feature.name ?? feature.external_id} cannot be controlled`);
     }
+    const fibaroId = writer.fibaroId;
     // The value is checked by the writer before anything is sent.
-    const calls = writer.write(value, this.props.get(writer.fibaroId) ?? {});
+    const calls = writer.write(value, this.props.get(fibaroId) ?? {});
     for (const c of calls) {
       this.checkGuard(c); // refused at once when the option is off
     }
     const generation = this.generation;
-    const send = () => this.sendCalls(client, writer.fibaroId, calls, generation);
-    // A stop is never held behind a previous command of the device.
-    const urgent = calls.length > 0 && calls.every((c) => c.name === 'stop');
-    await (urgent ? send() : this.serialize(writer.fibaroId, send));
-    this.logger.debug(`${calls.map((c) => c.name).join(', ')} sent to device ${writer.fibaroId}`);
+    const protective = calls.length > 0 && calls.every((c) => c.protective);
+    if (protective) {
+      // Stop, close, lock: never held behind another command, and an opening or
+      // an unlocking still waiting for its turn of this device is cancelled.
+      this.cancels.set(fibaroId, (this.cancels.get(fibaroId) ?? 0) + 1);
+    }
+    const epoch = this.cancels.get(fibaroId) ?? 0;
+    const send = () => this.sendCalls(client, fibaroId, calls, { generation, epoch });
+    await (protective || !writer.serialized ? send() : this.serialize(fibaroId, send));
+    this.logger.debug(`${calls.map((c) => c.name).join(', ')} handled for device ${fibaroId}`);
     if (this.model.optimistic.has(feature.external_id)) {
       this.record(feature.external_id, Number(value));
     }
   }
 
   /**
-   * Runs the commands of one device one after the other. A command that would
-   * wait too long behind the previous one is refused before it is sent (Gladys
-   * stops waiting after 5 s).
+   * Runs the commands of one device one after the other (shutters, gates,
+   * locks, valves). A command that would wait too long behind the previous one
+   * is refused before it is sent (Gladys stops waiting after 5 s).
    */
   serialize(fibaroId, fn) {
     const queuedAt = this.now();
@@ -576,13 +584,19 @@ export class FibaroApp {
     return next;
   }
 
-  /** Refuses a guarded action (gate opening, unlocking) when its option is off. */
+  /** Refuses a guarded action (gate opening, unlocking, valve) when its option is off. */
   checkGuard({ name, guard }) {
     if (guard && this.config[guard] !== true) {
-      const option = guard === GUARDS.GATES ? 'allow_gates' : 'allow_unlock';
       throw new Error(
-        `${name} refused, not sent: turn on the "${option}" option of the Fibaro integration to allow it`,
+        `${name} refused, not sent: turn on the "${GUARD_OPTIONS[guard]}" option of the Fibaro integration to allow it`,
       );
+    }
+  }
+
+  /** Refuses a guarded action that a later stop, close or lock of the device cancelled. */
+  checkCancelled(c, fibaroId, epoch) {
+    if (c.guard && (this.cancels.get(fibaroId) ?? 0) !== epoch) {
+      throw new Error(`${c.name} cancelled by a later Stop / Close / Lock, not sent`);
     }
   }
 
@@ -617,15 +631,17 @@ export class FibaroApp {
   }
 
   /**
-   * The actions of one command. A guarded one (gate opening, unlocking) is
-   * decided on the state read again from the box, and its option and the
-   * running configuration are checked again right before it is sent.
+   * The actions of one command. A guarded one (gate opening, unlocking, valve)
+   * is decided on the state read again from the box; its option, the running
+   * configuration and the cancellation by a later protective command are
+   * checked again right before it is sent.
    */
-  async sendCalls(client, fibaroId, calls, generation = this.generation) {
+  async sendCalls(client, fibaroId, calls, { generation = this.generation, epoch = 0 } = {}) {
     for (const c of calls) {
       const { name, args } = c;
       if (c.decide) {
         this.checkGuard(c);
+        this.checkCancelled(c, fibaroId, epoch);
         let fresh;
         try {
           fresh = await this.reread(client, fibaroId);
@@ -636,39 +652,50 @@ export class FibaroApp {
           );
         }
         if (c.decide(fresh) === 'skip') {
-          continue; // already in the state asked: nothing to send
+          this.logger.info(
+            `${name} not sent to device ${fibaroId}: the box reports it already in that state`,
+          );
+          continue;
         }
       }
       if (!this.current(generation) || this.client !== client) {
         throw new Error(`${name} not sent: the integration restarted meanwhile`);
       }
       this.checkGuard(c);
+      this.checkCancelled(c, fibaroId, epoch);
       try {
         await client.callAction(
           { api: this.box.api, deviceId: fibaroId, name, args },
           { timeout: c.decide ? TIMINGS.sensitiveCommandTimeout : TIMINGS.commandTimeout },
         );
       } catch (err) {
-        // A timeout: the request left, the box may have run it. A cut
-        // connection: it may have reached the box. Anything else (refused,
-        // unreachable, HTTP error) means it was not run.
-        if (err?.kind === 'timeout') {
-          this.confirmLater(client, fibaroId, generation);
-          throw new Error(
-            `${name} sent to device ${fibaroId}, without confirmation from the box (${err.message}): the device is read again in a few seconds`,
-            { cause: err },
-          );
-        }
-        if (err?.kind === 'network' && /reset|closed/.test(String(err.message))) {
-          this.confirmLater(client, fibaroId, generation);
-          throw new Error(
-            `${name} may have reached device ${fibaroId}, without confirmation from the box (${err.message}): the device is read again in a few seconds`,
-            { cause: err },
-          );
-        }
-        throw err;
+        throw this.actionFailure(err, name, client, fibaroId, generation);
       }
     }
+  }
+
+  /**
+   * What a failed action means for the user. The client says whether the
+   * request was fully written to the box (`sent`): a timeout or a cut
+   * connection after that is "sent, without confirmation" (the device is read
+   * again shortly after); before that, "not sent". Unknown (another
+   * transport): "may have reached". Anything else (refused, HTTP error) is
+   * returned as is: the box did not run it.
+   */
+  actionFailure(err, name, client, fibaroId, generation) {
+    if (err?.kind !== 'timeout' && err?.kind !== 'network') {
+      return err;
+    }
+    if (err.sent === false) {
+      return new Error(`${name} not sent to device ${fibaroId} (${err.message})`, { cause: err });
+    }
+    this.confirmLater(client, fibaroId, generation);
+    const what =
+      err.sent === true ? `sent to device ${fibaroId}` : `may have reached device ${fibaroId}`;
+    return new Error(
+      `${name} ${what}, without confirmation from the box (${err.message}): the device is read again in a few seconds`,
+      { cause: err },
+    );
   }
 
   // --- Scenes ----------------------------------------------------------------------

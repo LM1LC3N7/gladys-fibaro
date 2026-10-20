@@ -59,7 +59,8 @@ test('Roller Shutter 3 (FGR223) with its S1/S2 keys: position, open/close and th
   const { writers } = mapDevice(fgr223);
   assert.deepEqual(writers.position(50), [{ name: 'setValue', args: [50] }]);
   assert.deepEqual(writers.state(COVER_STATE.OPEN), [{ name: 'open', args: [] }]);
-  assert.deepEqual(writers.state(COVER_STATE.STOP), [{ name: 'stop', args: [] }]);
+  assert.deepEqual(writers.state(COVER_STATE.STOP), [{ name: 'stop', args: [], protective: true }]);
+  assert.deepEqual(writers.position(0), [{ name: 'setValue', args: [0], protective: true }]);
 });
 
 test('Walli, HC2 FGR221, a one-way radio motor and a shutter reported as a dimmer', () => {
@@ -75,21 +76,21 @@ test('Walli, HC2 FGR221, a one-way radio motor and a shutter reported as a dimme
   const office = devices.get('230');
   assert.deepEqual(specsOf(office), ['position shutter/position', 'state shutter/state']);
   assert.deepEqual(mapDevice(office).writers.state(COVER_STATE.CLOSE), [
-    { name: 'close', args: [] },
+    { name: 'close', args: [], protective: true },
   ]);
 });
 
 test('a gate, a lock, an RGBW controller are not shutters', () => {
   const gate = byId().get('250');
-  assert.equal(isShutter(gate), false);
+  assert.equal(roleOf(gate), 'gate');
   const base = { interfaces: undefined, properties: {} };
   assert.equal(
-    isShutter({ ...base, type: 'com.fibaro.doorLock', baseType: '', actions: ['open', 'close'] }),
-    false,
+    roleOf({ ...base, type: 'com.fibaro.doorLock', baseType: '', actions: ['open', 'close'] }),
+    'lock',
   );
   assert.equal(
-    isShutter({ ...base, type: 'com.acme.x', baseType: '', actions: ['secure', 'open', 'close'] }),
-    false,
+    roleOf({ ...base, type: 'com.acme.x', baseType: '', actions: ['secure', 'open', 'close'] }),
+    'lock',
   );
   assert.equal(
     isShutter({
@@ -206,7 +207,9 @@ test('a timeout after sending is "sent, without confirmation", never "not sent"'
   const box = fakeFibaro({ devices: shutterDevices() });
   const { gladys } = await setup(t, box);
   const living = shutterOf(gladys, 'Volet séjour (Salon)');
-  box.actionErrors['201:close'] = new FibaroError('timeout', 'no answer within 3 s');
+  box.actionErrors['201:close'] = new FibaroError('timeout', 'no answer within 3 s', {
+    sent: true,
+  });
   const ack = await gladys.fake.setValue(living.device, living.feature('state'), COVER_STATE.CLOSE);
   assert.equal(ack.success, false);
   assert.match(ack.error, /sent to device 201, without confirmation/);
@@ -223,7 +226,7 @@ test('the commands of one shutter are serialized, a stop never waits', async (t)
   const order = [];
   client.callAction = async (action, options) => {
     order.push(action.name);
-    if (action.name === 'close') {
+    if (action.name === 'open') {
       await new Promise((resolve) => {
         release = resolve;
       });
@@ -231,16 +234,43 @@ test('the commands of one shutter are serialized, a stop never waits', async (t)
     return original(action, options);
   };
   const feature = (key) => ({ external_id: `ext:test-integration:fibaro:201:${key}` });
-  const first = app.setValue({}, feature('state'), COVER_STATE.CLOSE);
+  const first = app.setValue({}, feature('state'), COVER_STATE.OPEN);
   await settle();
   const second = app.setValue({}, feature('position'), 40);
   const stop = app.setValue({}, feature('state'), COVER_STATE.STOP);
   await settle();
-  assert.deepEqual(order, ['close', 'stop'], 'the stop went at once, the position waits');
+  assert.deepEqual(order, ['open', 'stop'], 'the stop went at once, the position waits');
   await stop;
   t.mock.timers.tick(TIMINGS.commandQueueWait + 1);
   release();
   await first;
   await assert.rejects(second, /busy with a previous command: this one was not sent/);
-  assert.deepEqual(order, ['close', 'stop'], 'the late command was never sent');
+  assert.deepEqual(order, ['open', 'stop'], 'the late command was never sent');
+});
+
+test('a light or a plug is never queued: only shutters, gates, locks and valves are', async (t) => {
+  const box = fakeFibaro();
+  const { app } = await setup(t, box);
+  const client = app.client;
+  const original = client.callAction;
+  let release;
+  const order = [];
+  client.callAction = async (action, options) => {
+    order.push(`${action.deviceId}:${action.name}`);
+    if (action.name === 'turnOn') {
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+    }
+    return original(action, options);
+  };
+  const plug = { external_id: 'ext:test-integration:fibaro:31:binary' };
+  const first = app.setValue({}, plug, 1);
+  await settle();
+  const second = app.setValue({}, plug, 0);
+  await settle();
+  assert.deepEqual(order, ['31:turnOn', '31:turnOff'], 'no wait behind the first one');
+  release();
+  await Promise.all([first, second]);
+  assert.equal(app.queues.size, 0);
 });

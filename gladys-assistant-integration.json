@@ -21,8 +21,8 @@
         "fr": "Votre box Fibaro ou Yubii dans Gladys"
       },
       "description": {
-        "en": "For a Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite or Nice Yubii Home: every enabled and visible device of the box is offered in the Discovery tab (switches, dimmers, RGBW controllers, shutters, thermostats, locks, door, motion, flood and smoke sensors, temperature, light, humidity, power, battery) and the remotes and push buttons become scene triggers. The states follow the box live and Gladys controls the devices through it, which keeps running. Type the address of the box as seen from the Gladys machine (its LAN IP address) and the account you log in to it with. Unofficial, not affiliated with Fibaro or Nice.",
-        "fr": "Pour un Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite ou une Nice Yubii Home : chaque appareil activé et visible de la box est proposé dans l'onglet Découverte (interrupteurs, variateurs, modules RGBW, volets, thermostats, serrures, capteurs d'ouverture, de mouvement, d'inondation et de fumée, température, luminosité, humidité, consommation, batterie) et les télécommandes et boutons poussoirs deviennent des déclencheurs de scène. Les états suivent la box en direct et Gladys pilote les appareils à travers elle, qui continue de tourner. Saisissez l'adresse de la box vue depuis la machine Gladys (son adresse IP sur le réseau local) et le compte avec lequel vous vous y connectez. Non officiel, sans lien avec Fibaro ou Nice."
+        "en": "For a Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite or Nice Yubii Home: every enabled and visible device of the box is offered in the Discovery tab (switches, dimmers, RGBW controllers, shutters, thermostats, locks, door, motion, flood and smoke sensors, temperature, light, humidity, power, battery) and the remotes and push buttons become scene triggers. The states follow the box live and Gladys controls the devices through it, which keeps running. Opening gates and doors, unlocking and valve commands are off until you allow them below. Type the address of the box as seen from the Gladys machine (its LAN IP address) and the account you log in to it with. Unofficial, not affiliated with Fibaro or Nice.",
+        "fr": "Pour un Fibaro Home Center 2, Home Center Lite, Home Center 3, HC3 Lite ou une Nice Yubii Home : chaque appareil activé et visible de la box est proposé dans l'onglet Découverte (interrupteurs, variateurs, modules RGBW, volets, thermostats, serrures, capteurs d'ouverture, de mouvement, d'inondation et de fumée, température, luminosité, humidité, consommation, batterie) et les télécommandes et boutons poussoirs deviennent des déclencheurs de scène. Les états suivent la box en direct et Gladys pilote les appareils à travers elle, qui continue de tourner. L'ouverture des portails et portes, le déverrouillage et les vannes sont désactivés tant que vous ne les autorisez pas ci-dessous. Saisissez l'adresse de la box vue depuis la machine Gladys (son adresse IP sur le réseau local) et le compte avec lequel vous vous y connectez. Non officiel, sans lien avec Fibaro ou Nice."
       },
       "links": [
         {
@@ -119,8 +119,22 @@
         "fr": "Autoriser l'ouverture des portails, portes de garage et portes"
       },
       "description": {
-        "en": "Off (default): Gladys shows their state and can close or stop them, but never opens them. On: the Open button works too, after reading the state from the box again (refused when it is unknown).",
-        "fr": "Désactivé (par défaut) : Gladys affiche leur état et peut les fermer ou les arrêter, mais ne les ouvre jamais. Activé : le bouton Ouvrir fonctionne aussi, après avoir relu l'état dans la box (refusé s'il est inconnu)."
+        "en": "Off (default): Gladys shows their state and can close or stop them, but never opens them. On: the Open button works too, after reading the state from the box again (refused when it is unknown). A gate driven by a shutter module or a relay: set its role to Gate or Garage door in the box.",
+        "fr": "Désactivé (par défaut) : Gladys affiche leur état et peut les fermer ou les arrêter, mais ne les ouvre jamais. Activé : le bouton Ouvrir fonctionne aussi, après avoir relu l'état dans la box (refusé s'il est inconnu). Un portail piloté par un module de volet ou un relais : réglez son rôle sur Portail ou Porte de garage dans la box."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "allow_valves",
+      "type": "boolean",
+      "label": {
+        "en": "Allow opening and closing the valves",
+        "fr": "Autoriser l'ouverture et la fermeture des vannes"
+      },
+      "description": {
+        "en": "Off (default): Gladys shows the state of the water or gas valves but never opens nor closes them (opening may flood, closing cuts the water). On: the Open and Close buttons work, after reading the state from the box again (refused when it is unknown).",
+        "fr": "Désactivé (par défaut) : Gladys affiche l'état des vannes d'eau ou de gaz mais ne les ouvre ni ne les ferme jamais (ouvrir peut inonder, fermer coupe l'eau). Activé : les boutons Ouvrir et Fermer fonctionnent, après avoir relu l'état dans la box (refusé s'il est inconnu)."
       },
       "required": false,
       "default": false

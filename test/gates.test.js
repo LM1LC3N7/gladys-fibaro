@@ -63,8 +63,16 @@ test('a gate is never a shutter: its state and Open / Close / Stop push buttons'
   assert.equal(open.decide({ value: 'Open' }), 'skip', 'already open: nothing sent');
   assert.throws(() => open.decide({ value: 'Unknown' }), /state unknown, opening refused/);
   assert.throws(() => open.decide({ value: 'Closed', dead: true }), /dead/);
-  assert.deepEqual(m.writers.close(1), [{ name: 'close', args: [] }], 'close: never guarded');
-  assert.deepEqual(m.writers.stop(1), [{ name: 'stop', args: [] }], 'stop: never guarded');
+  assert.deepEqual(
+    m.writers.close(1),
+    [{ name: 'close', args: [], protective: true }],
+    'close: never guarded',
+  );
+  assert.deepEqual(
+    m.writers.stop(1),
+    [{ name: 'stop', args: [], protective: true }],
+    'stop: never guarded',
+  );
   assert.throws(() => m.writers.open(0), /a push is 1/);
   assert.throws(() => m.writers.open(null), /invalid value/);
 });
@@ -116,8 +124,8 @@ test('a gate created as a shutter by 0.1.1 keeps its features, opening guarded',
   const write = legacy.writers.get('ext:t:fibaro:250:state').write;
   const [open] = write(COVER_STATE.OPEN);
   assert.deepEqual([open.name, open.guard], ['open', GUARDS.GATES]);
-  assert.deepEqual(write(COVER_STATE.CLOSE), [{ name: 'close', args: [] }]);
-  assert.deepEqual(write(COVER_STATE.STOP), [{ name: 'stop', args: [] }]);
+  assert.deepEqual(write(COVER_STATE.CLOSE), [{ name: 'close', args: [], protective: true }]);
+  assert.deepEqual(write(COVER_STATE.STOP), [{ name: 'stop', args: [], protective: true }]);
 
   // A shutter module set to Gate whose position existed: kept, opening guarded.
   const fgr = shutterDevices().map((d) =>
@@ -129,7 +137,11 @@ test('a gate created as a shutter by 0.1.1 keeps its features, opening guarded',
   ]);
   const position = old.writers.get('ext:t:fibaro:201:position').write;
   assert.equal(position(50)[0].guard, GUARDS.GATES);
-  assert.deepEqual(position(0), [{ name: 'setValue', args: [0] }], 'closing: never guarded');
+  assert.deepEqual(
+    position(0),
+    [{ name: 'setValue', args: [0], protective: true }],
+    'closing: never guarded',
+  );
 });
 
 // --- Through the app -------------------------------------------------------------
@@ -241,7 +253,7 @@ test('the option is checked again right before sending', async (t) => {
 test('a timeout after sending: "sent, without confirmation", and the device is read again', async (t) => {
   const config = { ...BASE, allow_gates: true };
   const { box, press, tick } = await setup(t, { config });
-  box.actionErrors['250:open'] = new FibaroError('timeout', 'no answer within 2 s');
+  box.actionErrors['250:open'] = new FibaroError('timeout', 'no answer within 2 s', { sent: true });
   const open = await press(GATE, 'open');
   assert.match(open.error, /^open sent to device 250, without confirmation from the box/);
   assert.match(open.error, /read again in a few seconds/);

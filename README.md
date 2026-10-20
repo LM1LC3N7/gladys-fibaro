@@ -45,9 +45,11 @@ of the box):
   (a light when `isLight` / `deviceRole: Light`), RGBW controllers (color as an
   RGB integer, the last color when off), roller shutters (position 0–99 with
   5 % slack at the ends, open / close / stop), gates and garage doors (state,
-  Open / Close / Stop; opening only with `allow_gates`), door locks (unlocking
-  only with `allow_unlock`; both decided on the state read again from the
-  box), thermostats (heating
+  Open / Close / Stop, or an Open pulse for a relay; opening only with
+  `allow_gates`), door locks (unlocking only with `allow_unlock`), water and
+  gas valves (state, Open / Close, only with `allow_valves`); guarded
+  commands are decided on the state read again from the box, and a Stop,
+  Close or Lock cancels one still waiting, thermostats (heating
   and cooling setpoints, HC3 `thermostatMode` names or HC2 Z-Wave mode codes,
   operating state), door/window, motion, flood, smoke, CO sensors,
   temperature, light, humidity, multilevel sensors by unit, power and energy,

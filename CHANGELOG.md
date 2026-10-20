@@ -22,25 +22,41 @@ the notes of the version's GitHub Release.
   but cannot be set to one keeps it as a read-only reading.
 - Shutter commands: the value is checked strictly before anything is sent
   (an empty or invalid position is refused, never taken for 0, which closed
-  the shutter); the commands of one device run one after the other, a stop
-  never waits; an action times out after 3 s, within the 5 s Gladys waits;
-  a command that may have reached the box is reported "sent, without
-  confirmation", never "not sent".
-- Gates, garage doors and motorized doors (`com.fibaro.barrier`, gate /
-  garage / door types, the Gate and GarageDoor roles) are no longer offered as
-  shutters: their state (read-only) and Open, Close, Stop buttons. Opening is
-  off by default, behind the new "Allow opening gates, garage doors and doors"
-  option (`allow_gates`); closing and stopping always work.
-- Door locks: unlocking is off by default, behind the new "Allow unlocking the
+  the shutter); the commands of one shutter, gate, lock or valve run one
+  after the other (lights and plugs are never held); an action times out
+  after 3 s, within the 5 s Gladys waits.
+- Gates, garage doors and motorized doors (`com.fibaro.barrier`, the words
+  gate / garage / door / barrier in the type, the Gate and GarageDoor roles,
+  a relay included) are never offered as switches, dimmers or shutters: their
+  state (read-only) and Open, Close, Stop buttons; a gate on a plain relay:
+  the relay contact (read-only) and an Open button pulsing it. Opening is off
+  by default, behind the new "Allow opening gates, garage doors and doors"
+  option (`allow_gates`); closing and stopping always work. A gate driven by
+  a shutter module stays a shutter: set its role to Gate or Garage door in
+  the box.
+- Door locks (secure / unsecure actions or a lock type, before any other
+  role): unlocking is off by default, behind the new "Allow unlocking the
   door locks" option (`allow_unlock`); locking always works.
-- With the option on, opening and unlocking are decided on the state read
-  again from the box just before (refused when unknown or the device is dead,
-  nothing sent when already open or unlocked), and the option is checked
-  again right before sending. Otherwise the command is refused with a message,
-  nothing sent. A device created with 0.1.1 keeps all its features (a gate
-  keeps its shutter features, with the same rule).
-- A command without confirmation from the box is said so, and the device is
-  read again a few seconds later.
+- Water and gas valves (a valve type or role) are no longer switches: their
+  state (read-only) and Open and Close buttons, both off by default behind
+  the new "Allow opening and closing the valves" option (`allow_valves`).
+- With the option on, opening, unlocking and valve commands are decided on
+  the state read again from the box just before (refused when unknown or the
+  device is dead; nothing sent, and logged, when it is already clearly open,
+  unlocked or in the state asked; a relay gate is only checked to be alive),
+  and the option is checked again right before sending. A Stop, Close or
+  Lock is sent at once and cancels an opening or unlocking still waiting
+  ("cancelled by a later Stop / Close / Lock, not sent").
+- A command the box did not confirm: "sent, without confirmation" only when
+  the request was fully written to the box (the device is then read again a
+  few seconds later), "not sent" when it never left.
+- Update from 0.1.1: the devices already added keep their features, but an
+  opening, unlocking or valve command, from the dashboard or from a 0.1.1
+  scene, is refused while the option is off. A shutter added as a switch or a
+  dimmer shows "Update" in Discovery: it replaces On/off and Level with
+  Position and Open/close, and their history is deleted. A gate added as a
+  shutter keeps its shutter features (opening guarded); a gate added as a
+  switch loses that feature and its history on "Update".
 - "Test the connection" no longer counts the hidden technical nodes of the box
   (the Z-Wave parent of each module) as devices left out, and names the
   Fibaro types of the devices with nothing to offer.

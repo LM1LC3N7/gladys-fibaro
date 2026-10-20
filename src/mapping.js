@@ -143,6 +143,24 @@ const hasProp = (dev, prop) => dev.properties[prop] !== undefined && dev.propert
 const hasInterface = (dev, name, prop) =>
   dev.interfaces ? dev.interfaces.includes(name) && hasProp(dev, prop) : hasProp(dev, prop);
 
+// --- Words of a type ---------------------------------------------------------------
+
+/**
+ * The words of a type or base type, split on dots, dashes, underscores and
+ * camelCase: com.fibaro.garageDoorOpener -> com, fibaro, garage, door, opener.
+ * Matching whole words keeps "outdoorLight", "indoorUnit", "aggregateMeter"
+ * or "clockSensor" out of the door, gate and lock rules.
+ */
+export const typeWords = (type) =>
+  String(type ?? '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((w) => w.toLowerCase());
+
+const wordsOf = (dev) => new Set([dev.type, dev.baseType].flatMap(typeWords));
+const anyWord = (words, list) => list.some((w) => words.has(w));
+
 // --- Shutters ------------------------------------------------------------------
 
 /**
@@ -151,9 +169,8 @@ const hasInterface = (dev, name, prop) =>
  * FGR223 (Roller Shutter 2 and 3), FGWR111 (Walli Roller Shutter). Not the
  * FGRGBW controllers.
  */
-const SHUTTER_TYPE = /shutter|blind|curtain|awning|^com\.fibaro\.FGR(M?\d|$)|^com\.fibaro\.FGWR/i;
-/** Gates, garage doors, locks and valves: never offered as a shutter by this path. */
-const NOT_A_SHUTTER = /barrier|gate|garage|door|lock|valve/i;
+const SHUTTER_WORDS = ['shutter', 'blind', 'blinds', 'curtain', 'awning'];
+const FIBARO_SHUTTER = /^com\.fibaro\.(FGR(M?\d|$)|FGWR)/;
 /** HC3 / Yubii `deviceRole` of a shutter module (the role picked in the box). */
 const SHUTTER_ROLES = new Set([
   'BlindsWithPositioning',
@@ -163,34 +180,57 @@ const SHUTTER_ROLES = new Set([
   'Awning',
   'Curtain',
 ]);
+
+// --- Gates, garage doors, doors, locks, valves -----------------------------------
+
+const GATE_WORDS = ['barrier', 'gate', 'garage', 'door'];
 const GATE_ROLES = new Set(['Gate', 'GarageDoor']);
-
-// --- Gates, garage doors, doors ------------------------------------------------
-
-/** Barriers, gates, garage doors; "door" types except the door sensors and locks. */
-const GATE_TYPE = /barrier|gate|garage/i;
-const DOOR_TYPE = /door/i;
-const DOOR_NOT_ACTOR = /sensor|lock/i;
+/** A door sensor or a door lock is not a gate. */
+const NOT_A_GATE = ['sensor', 'lock', 'detector'];
+const VALVE_ROLES = new Set(['Valve', 'WaterValve', 'GasValve']);
 
 /**
- * A gate, a garage door or a motorized door: by its type or base type, or the
- * Gate / GarageDoor role picked in the box (a shutter module driving a gate).
- * Never a shutter: opening it is off until the user allows it (allow_gates).
+ * A gate, a garage door or a motorized door: a type or base type with the
+ * word barrier, gate, garage or door (not a sensor nor a lock), or the Gate /
+ * GarageDoor role picked in the box (a relay or a shutter module driving a
+ * gate). Never a switch, a dimmer nor a shutter: opening it is off until the
+ * user allows it (allow_gates).
  */
 export function isGate(dev) {
-  const types = [dev.type, dev.baseType].filter(Boolean);
+  const words = wordsOf(dev);
+  if (anyWord(words, NOT_A_GATE)) {
+    return false;
+  }
+  return anyWord(words, GATE_WORDS) || GATE_ROLES.has(dev.properties.deviceRole);
+}
+
+/** A lock: the secure / unsecure actions, or the word lock in its type. */
+export function isLock(dev) {
   return (
-    types.some((t) => GATE_TYPE.test(t) || (DOOR_TYPE.test(t) && !DOOR_NOT_ACTOR.test(t))) ||
-    GATE_ROLES.has(dev.properties.deviceRole)
+    has(dev, 'secure') ||
+    has(dev, 'unsecure') ||
+    (wordsOf(dev).has('lock') && !wordsOf(dev).has('sensor'))
   );
 }
 
-/** The state of a gate, read from `state` then `value`: 'open' | 'closed' | 'moving' | undefined. */
+/** A valve: the word valve in its type, or a valve role picked in the box. */
+export function isValve(dev) {
+  const words = wordsOf(dev);
+  return (words.has('valve') && !words.has('sensor')) || VALVE_ROLES.has(dev.properties.deviceRole);
+}
+
+/** A gate (or a valve) driven by a plain relay: its value is the contact, not the position. */
+const isRelay = (dev) =>
+  !has(dev, 'open') && !has(dev, 'close') && !has(dev, 'setValue') && has(dev, 'turnOn');
+
+/**
+ * The state of a gate, read from `state` then `value`: 'open' (clearly: open,
+ * true, 95 % and more), 'closed' (closed, false, 5 % and less), 'partial' (in
+ * between), 'moving', or undefined (unknown). HC2 strings ("true", "99")
+ * included.
+ */
 export function gateStateOf(p) {
   for (const raw of [p?.state, p?.value]) {
-    if (typeof raw === 'boolean') {
-      return raw ? 'open' : 'closed';
-    }
     const text = String(raw ?? '')
       .trim()
       .toLowerCase();
@@ -203,9 +243,15 @@ export function gateStateOf(p) {
     if (text === 'opening' || text === 'closing') {
       return 'moving';
     }
+    if (typeof raw === 'boolean' || text === 'true' || text === 'false') {
+      return toBool(raw) ? 'open' : 'closed';
+    }
     const n = toNumber(text);
     if (n !== undefined) {
-      return n > 0 ? 'open' : 'closed';
+      if (n >= 95) {
+        return 'open';
+      }
+      return n <= 5 ? 'closed' : 'partial';
     }
   }
   return undefined;
@@ -214,8 +260,17 @@ export function gateStateOf(p) {
 /** A lock: 1 locked, 0 unlocked, undefined unknown. */
 export const lockStateOf = (p) => binaryOf(p?.value ?? p?.secured);
 
+/** A valve relay: 1 on (open), 0 off (closed), undefined unknown. */
+export const valveStateOf = (p) => binaryOf(p?.value);
+
 /** The options that allow a command (src/config.js keys, camelCase). */
-export const GUARDS = { GATES: 'allowGates', UNLOCK: 'allowUnlock' };
+export const GUARDS = { GATES: 'allowGates', UNLOCK: 'allowUnlock', VALVES: 'allowValves' };
+/** The manifest key of each guard option. */
+export const GUARD_OPTIONS = {
+  allowGates: 'allow_gates',
+  allowUnlock: 'allow_unlock',
+  allowValves: 'allow_valves',
+};
 
 const deadCheck = (name, p) => {
   if (toBool(p?.dead) === true) {
@@ -225,20 +280,19 @@ const deadCheck = (name, p) => {
 
 /**
  * A roller shutter, a blind or an awning: by its type or base type, by the
- * role picked in the box, or by its open / close actions. Checked before the
- * other roles, so a shutter is never a switch nor a dimmer (an "everything
- * off" of a voice assistant would close or open it).
+ * role picked in the box, or by its open / close actions. Checked after the
+ * gates, locks and valves and before the other roles, so a shutter is never a
+ * switch nor a dimmer (an "everything off" of a voice assistant would close
+ * or open it).
  */
 export function isShutter(dev) {
   const types = [dev.type, dev.baseType].filter(Boolean);
-  if (types.some((t) => NOT_A_SHUTTER.test(t)) || GATE_ROLES.has(dev.properties.deviceRole)) {
-    return false;
-  }
-  if (has(dev, 'secure')) {
+  if (wordsOf(dev).has('sensor')) {
     return false;
   }
   return (
-    types.some((t) => SHUTTER_TYPE.test(t)) ||
+    anyWord(wordsOf(dev), SHUTTER_WORDS) ||
+    types.some((t) => FIBARO_SHUTTER.test(t)) ||
     SHUTTER_ROLES.has(dev.properties.deviceRole) ||
     (has(dev, 'open') && has(dev, 'close'))
   );
@@ -251,9 +305,15 @@ const isThermostat = (dev) =>
 
 /** The role of a device, or undefined when nothing fits. */
 export function roleOf(dev) {
-  // An actor only: a door sensor with a Gate role stays a sensor.
-  if (isGate(dev) && (has(dev, 'open') || has(dev, 'close') || has(dev, 'setValue'))) {
+  // Physical access and water first: never a switch, a dimmer nor a shutter.
+  if (isGate(dev)) {
     return 'gate';
+  }
+  if (isLock(dev)) {
+    return 'lock';
+  }
+  if (isValve(dev)) {
+    return 'valve';
   }
   if (isShutter(dev)) {
     return 'cover';
@@ -277,12 +337,6 @@ export function roleOf(dev) {
   }
   if (has(dev, 'turnOn')) {
     return 'switch';
-  }
-  if (has(dev, 'open') && has(dev, 'close')) {
-    return 'cover';
-  }
-  if (has(dev, 'secure')) {
-    return 'lock';
   }
   if (centralScene(dev.properties).length > 0) {
     return 'remote';
@@ -416,6 +470,12 @@ const OPERATING_STATES = {
 // --- The device ----------------------------------------------------------------
 
 const call = (name, ...args) => ({ name, args });
+/**
+ * A protective action (stop, close, lock, position 0 of a shutter or a gate):
+ * never held behind another command of the device, and it cancels an opening
+ * or an unlocking still waiting for its turn.
+ */
+const protect = (c) => ({ ...c, protective: true });
 
 class DeviceMapper {
   constructor(dev, { unit = 'C' } = {}, existing = new Set()) {
@@ -537,16 +597,19 @@ class DeviceMapper {
   }
 
   /**
-   * A shutter: its position (0–100 %, when it reports one) and open / close /
-   * stop, always in the `shutter` category. The values sent are checked
-   * strictly before anything leaves: null, '' or a number out of range are
-   * refused, never read as 0 (which would close the shutter).
+   * A shutter: its position (0–100 %, when it reports a numeric one) and open
+   * / close / stop, always in the `shutter` category. The values sent are
+   * checked strictly before anything leaves: null, '' or a number out of range
+   * are refused, never read as 0 (which would close the shutter). Close, stop
+   * and position 0 are protective: never held behind another command.
    */
   cover() {
     const dev = this.dev;
     const canSet = has(dev, 'setValue');
-    // A position-less shutter (baseShutter, one-way radio motor) has no numeric value.
-    if (hasProp(dev, 'value') && (canSet || toNumber(this.p.value) !== undefined)) {
+    // No position for a one-way motor (no value) nor a relay (a boolean contact).
+    const raw = this.p.value;
+    const boolish = typeof raw === 'boolean' || raw === 'true' || raw === 'false';
+    if (hasProp(dev, 'value') && !boolish && (canSet || toNumber(raw) !== undefined)) {
       this.add(
         'position',
         'Position',
@@ -555,7 +618,10 @@ class DeviceMapper {
           props: ['value'],
           read: (p) => positionOf(p.value),
           write: canSet
-            ? (value) => [call('setValue', toLevel(strictNumber(value, 0, 100, dev.name)))]
+            ? (value) => {
+                const level = toLevel(strictNumber(value, 0, 100, dev.name));
+                return [level === 0 ? protect(call('setValue', 0)) : call('setValue', level)];
+              }
             : undefined,
         },
       );
@@ -573,10 +639,10 @@ class DeviceMapper {
               return [has(dev, 'open') ? call('open') : call('setValue', 99)];
             }
             if (wanted === COVER_STATE.CLOSE) {
-              return [has(dev, 'close') ? call('close') : call('setValue', 0)];
+              return [protect(has(dev, 'close') ? call('close') : call('setValue', 0))];
             }
             if (wanted === COVER_STATE.STOP && has(dev, 'stop')) {
-              return [call('stop')];
+              return [protect(call('stop'))];
             }
             throw new Error(`${dev.name} cannot do ${value}`);
           },
@@ -586,9 +652,10 @@ class DeviceMapper {
   }
 
   /**
-   * A lock: locking is always allowed; unlocking only with allow_unlock, on the
-   * state read again from the box just before (refused when it is unknown or
-   * the lock is dead, nothing sent when it is already unlocked).
+   * A lock: locking is always allowed (protective); unlocking only with
+   * allow_unlock, on the state read again from the box just before (refused
+   * when it is unknown or the lock is dead, nothing sent when it is already
+   * unlocked).
    */
   lock() {
     const dev = this.dev;
@@ -604,7 +671,7 @@ class DeviceMapper {
             ? (value) => {
                 const wanted = strictNumber(value, 0, 1, dev.name);
                 if (wanted === 1) {
-                  return [call('secure')];
+                  return [protect(call('secure'))];
                 }
                 if (wanted !== 0) {
                   throw new Error(`${dev.name}: invalid value ${value} (expected 0 or 1)`);
@@ -631,39 +698,78 @@ class DeviceMapper {
     );
   }
 
+  /** A push button feature running `action` (a press is the value 1). */
+  pushButton(key, label, action) {
+    const name = this.dev.name;
+    this.add(
+      key,
+      label,
+      { category: C.BUTTON, type: T.BUTTON.PUSH, min: 0, max: 1, keepHistory: false },
+      {
+        write: (value) => {
+          if (strictNumber(value, 0, 1, name) !== 1) {
+            throw new Error(`${name}: invalid value ${value} (a push is 1)`);
+          }
+          return [action];
+        },
+      },
+    );
+  }
+
   /**
    * A gate, a garage door or a motorized door: its state (read-only) and Open
-   * / Close / Stop push buttons. Close and Stop always work (they protect);
-   * Open needs allow_gates and is decided on the state read again from the box
-   * just before (refused when unknown or dead, nothing sent when already open).
-   * A device created when gates were still offered as shutters keeps its
-   * `state` / `position` features, with the same rule.
+   * / Close / Stop push buttons. Close and Stop always work (protective); Open
+   * needs allow_gates and is decided on the state read again from the box
+   * just before (refused when unknown or dead, nothing sent when clearly
+   * open). A gate driven by a plain relay (turnOn only): the relay contact
+   * (read-only) and an Open button pulsing turnOn, behind allow_gates, decided
+   * on nothing but the device being alive (a relay value is not the position
+   * of the gate). A device created when gates were offered as shutters keeps
+   * its `state` / `position` features, with the same rule; a switch feature
+   * of a gate is never kept.
    */
   gate() {
     const dev = this.dev;
     const name = dev.name;
-    const openGuard = {
-      guard: GUARDS.GATES,
-      decide: (p) => {
-        deadCheck(name, p);
-        const state = gateStateOf(p);
-        if (state === undefined) {
-          throw new Error(`${name}: state unknown, opening refused (command not sent)`);
-        }
-        return state === 'open' ? 'skip' : 'send';
-      },
+    if (isRelay(dev)) {
+      if (hasProp(dev, 'value')) {
+        this.add(
+          'relay',
+          'Relay contact',
+          { category: C.UNKNOWN, type: T.UNKNOWN.UNKNOWN, min: 0, max: 1 },
+          { props: ['value'], read: (p) => binaryOf(p.value) },
+        );
+      }
+      this.pushButton('open', 'Open', {
+        ...call('turnOn'),
+        guard: GUARDS.GATES,
+        decide: (p) => {
+          deadCheck(name, p);
+          return 'send';
+        },
+      });
+      return;
+    }
+    const decideOpening = (skipWhenOpen) => (p) => {
+      deadCheck(name, p);
+      const state = gateStateOf(p);
+      if (state === undefined) {
+        throw new Error(`${name}: state unknown, opening refused (command not sent)`);
+      }
+      return skipWhenOpen && state === 'open' ? 'skip' : 'send';
     };
+    const openGuard = { guard: GUARDS.GATES, decide: decideOpening(true) };
     const openCall = has(dev, 'open')
       ? { ...call('open'), ...openGuard }
       : has(dev, 'setValue')
         ? { ...call('setValue', 99), ...openGuard }
         : undefined;
     const closeCall = has(dev, 'close')
-      ? call('close')
+      ? protect(call('close'))
       : has(dev, 'setValue')
-        ? call('setValue', 0)
+        ? protect(call('setValue', 0))
         : undefined;
-    const stopCall = has(dev, 'stop') ? call('stop') : undefined;
+    const stopCall = has(dev, 'stop') ? protect(call('stop')) : undefined;
 
     if (hasProp(dev, 'state') || hasProp(dev, 'value')) {
       this.add(
@@ -682,24 +788,13 @@ class DeviceMapper {
         },
       );
     }
-    const push = { category: C.BUTTON, type: T.BUTTON.PUSH, min: 0, max: 1, keepHistory: false };
-    const pressed = (value) => {
-      if (strictNumber(value, 0, 1, name) !== 1) {
-        throw new Error(`${name}: invalid value ${value} (a push is 1)`);
-      }
-    };
     for (const [key, label, action] of [
       ['open', 'Open', openCall],
       ['close', 'Close', closeCall],
       ['stop', 'Stop', stopCall],
     ]) {
       if (action) {
-        this.add(key, label, push, {
-          write: (value) => {
-            pressed(value);
-            return [action];
-          },
-        });
+        this.pushButton(key, label, action);
       }
     }
 
@@ -715,8 +810,15 @@ class DeviceMapper {
           write: has(dev, 'setValue')
             ? (value) => {
                 const level = toLevel(strictNumber(value, 0, 100, name));
+                // A partial position is not "open": always sent once allowed and known.
                 return [
-                  level === 0 ? call('setValue', 0) : { ...call('setValue', level), ...openGuard },
+                  level === 0
+                    ? protect(call('setValue', 0))
+                    : {
+                        ...call('setValue', level),
+                        guard: GUARDS.GATES,
+                        decide: decideOpening(false),
+                      },
                 ];
               }
             : undefined,
@@ -743,6 +845,78 @@ class DeviceMapper {
               throw new Error(`${name} cannot do ${value}`);
             }
             return [action];
+          },
+        },
+      );
+    }
+  }
+
+  /**
+   * A water or gas valve: its state (read-only) and Open / Close push buttons,
+   * both behind allow_valves (opening floods, closing cuts the water), decided
+   * on the state read again from the box just before (refused when unknown or
+   * dead, nothing sent when already in the state asked). A relay valve: on is
+   * open. A valve created as a switch by 0.1.1 keeps its on/off feature, with
+   * the same rule (refused while the option is off).
+   */
+  valve() {
+    const dev = this.dev;
+    const name = dev.name;
+    const stateOf = (p) => {
+      const state = gateStateOf(p);
+      return state === 'open' ? 1 : state === 'closed' ? 0 : undefined;
+    };
+    const guarded = (action, wanted) => ({
+      ...action,
+      guard: GUARDS.VALVES,
+      decide: (p) => {
+        deadCheck(name, p);
+        const state = stateOf(p);
+        if (state === undefined) {
+          throw new Error(`${name}: valve state unknown, command refused (not sent)`);
+        }
+        return state === wanted ? 'skip' : 'send';
+      },
+    });
+    const openAction = has(dev, 'open')
+      ? call('open')
+      : has(dev, 'turnOn')
+        ? call('turnOn')
+        : undefined;
+    const closeAction = has(dev, 'close')
+      ? call('close')
+      : has(dev, 'turnOff')
+        ? call('turnOff')
+        : undefined;
+    if (hasProp(dev, 'value') || hasProp(dev, 'state')) {
+      this.add(
+        'valve',
+        'Valve (1 open)',
+        { category: C.UNKNOWN, type: T.UNKNOWN.UNKNOWN, min: 0, max: 1 },
+        { props: ['state', 'value'], read: stateOf },
+      );
+    }
+    if (openAction) {
+      this.pushButton('open', 'Open', guarded(openAction, 1));
+    }
+    if (closeAction) {
+      this.pushButton('close', 'Close', guarded(closeAction, 0));
+    }
+    // Legacy: a valve created as a switch by 0.1.1 keeps its on/off feature.
+    if (this.existing.has('binary') && openAction && closeAction) {
+      this.add(
+        'binary',
+        'On/off',
+        { category: C.SWITCH, type: T.SWITCH.BINARY },
+        {
+          props: ['value'],
+          read: (p) => binaryOf(p.value),
+          write: (value) => {
+            const wanted = strictNumber(value, 0, 1, name);
+            if (wanted !== 0 && wanted !== 1) {
+              throw new Error(`${name}: invalid value ${value} (expected 0 or 1)`);
+            }
+            return [wanted === 1 ? guarded(openAction, 1) : guarded(closeAction, 0)];
           },
         },
       );
@@ -1064,6 +1238,9 @@ class DeviceMapper {
         break;
       case 'gate':
         this.gate();
+        break;
+      case 'valve':
+        this.valve();
         break;
       case 'thermostat':
         this.thermostat();

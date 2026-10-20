@@ -12,6 +12,9 @@
 import { LIMITS } from './constants.js';
 import { mapDevice } from './mapping.js';
 
+/** The roles whose commands of one device run one after the other (physical movement, access, water). */
+export const SERIALIZED_ROLES = new Set(['cover', 'gate', 'lock', 'valve']);
+
 /** Device names repeat from room to room ("Light"): the room is part of the name. */
 export const deviceName = (dev) =>
   (dev.roomName ? `${dev.name} (${dev.roomName})` : dev.name).slice(0, 100);
@@ -101,8 +104,10 @@ export function buildModel(idsOf, inventory, box, createdFeatures = []) {
         read,
       })),
     );
+    // Shutters, gates, locks and valves: one command at a time per device.
+    const serialized = SERIALIZED_ROLES.has(mapped.role);
     for (const [key, write] of Object.entries(mapped.writers)) {
-      model.writers.set(ids.feature(key), { fibaroId: dev.id, write });
+      model.writers.set(ids.feature(key), { fibaroId: dev.id, write, serialized });
     }
     for (const key of mapped.throttled) {
       model.throttled.add(ids.feature(key));

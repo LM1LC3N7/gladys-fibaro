@@ -139,6 +139,23 @@ up to date at the end of every milestone.
   keeps `state` / `position`, with opening guarded. A timeout after sending
   is "sent, without confirmation" and the device is read again after 2 s.
   Needs an `xhigh` review (physical access).
+- After the xhigh review (2026-10-20): roles in this order: gate, lock,
+  valve, shutter, then the type table. Type rules match whole words
+  (`typeWords`: dots, dashes, camelCase), never substrings. A gate on a plain
+  relay (turnOn only): read-only `relay` contact + guarded `open` pulsing
+  turnOn, decided only on "alive" (the relay value is not the gate position);
+  no switch feature of 0.1.1 is ever kept on a gate. Valves (`valve` word,
+  Valve / WaterValve / GasValve roles): read-only `valve` (1 open) + `open`
+  / `close` push, both behind `allow_valves` (on = open for a relay valve,
+  an assumption); a 0.1.1 `binary` is kept, guarded both ways. Protective
+  calls (`protective: true`: stop, close, secure, position 0) skip the queue
+  and bump a per-device cancel counter; a guarded call checks it after the
+  re-read and right before callAction. `skip` only when clearly open (open,
+  true, ≥ 95 %). No position for a boolean value. The client marks a failure
+  `sent` once the request was fully written ('finish'); the app says "not
+  sent" before that. Only cover / gate / lock / valve commands are queued.
+  Not done: republishing the old switch / dimmer of a shutter read-only to
+  keep its history (the reviewer's option): "Update" deletes it, documented.
 - RGBW: color = RGB of `color` ("r,g,b,w"), `lastColorSet` when the
   controller is off (0,0,0,0); written with `setColor` and string arguments
   (as Home Assistant), white at 0.

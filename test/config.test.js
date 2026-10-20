@@ -31,6 +31,7 @@ test('defaults, bounds and what is missing', () => {
     includePlugins: false,
     allowGates: false,
     allowUnlock: false,
+    allowValves: false,
     sensorInterval: 300,
   });
   // Opening and unlocking: only a real true turns them on.

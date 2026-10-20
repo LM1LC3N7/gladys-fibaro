@@ -109,8 +109,12 @@ test('shutters: position 0–99 with slack at the ends, open / close / stop', ()
   assert.equal(shutter.read('position', { value: '50' }), 50);
   assert.deepEqual(shutter.write('position', 100), [{ name: 'setValue', args: [99] }]);
   assert.deepEqual(shutter.write('state', COVER_STATE.OPEN), [{ name: 'open', args: [] }]);
-  assert.deepEqual(shutter.write('state', COVER_STATE.CLOSE), [{ name: 'close', args: [] }]);
-  assert.deepEqual(shutter.write('state', COVER_STATE.STOP), [{ name: 'stop', args: [] }]);
+  assert.deepEqual(shutter.write('state', COVER_STATE.CLOSE), [
+    { name: 'close', args: [], protective: true },
+  ]);
+  assert.deepEqual(shutter.write('state', COVER_STATE.STOP), [
+    { name: 'stop', args: [], protective: true },
+  ]);
   assert.deepEqual(shutter.optimistic, ['state']);
 
   const store = mapped(HC3.get('61'));
@@ -226,7 +230,7 @@ test('a door lock: 1 is locked, secure always, unsecure guarded and decided on a
   const lock = mapped(HC3.get('90'));
   assert.deepEqual(lock.specs[0], 'lock lock/binary');
   assert.equal(lock.read('lock'), 1);
-  assert.deepEqual(lock.write('lock', 1), [{ name: 'secure', args: [] }]);
+  assert.deepEqual(lock.write('lock', 1), [{ name: 'secure', args: [], protective: true }]);
   const [unsecure] = lock.write('lock', 0);
   assert.deepEqual([unsecure.name, unsecure.args, unsecure.guard], ['unsecure', [], GUARDS.UNLOCK]);
   assert.equal(unsecure.decide({ value: true }), 'send');

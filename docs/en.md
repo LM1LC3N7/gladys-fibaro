@@ -34,36 +34,53 @@ affiliated with Fibaro or Nice.
 
 ## What you get
 
-| In the box                                                | In Gladys                                                           |
-| --------------------------------------------------------- | ------------------------------------------------------------------- |
-| Relay, wall plug (binary switch)                          | a switch, with its power and energy when the module measures them   |
-| Dimmer (Dimmer 2, Walli Dimmer…)                          | a light (on/off, brightness) when it drives a lamp, else a dimmer   |
-| RGBW controller                                           | a light: on/off, brightness, color                                  |
-| Roller shutter (Roller Shutter 2/3, Walli Roller Shutter) | a shutter: position, open, close, stop                              |
-| Shutter without position                                  | open, close, stop                                                   |
-| Thermostatic head, thermostat, HVAC                       | a thermostat: setpoint, mode (off, heat, cool, auto), heating state |
-| Door lock                                                 | a lock: locking always; unlocking only with the option              |
-| Gate, garage door, motorized door (barrier, Gate role)    | its state, and Open, Close, Stop buttons; Open only with the option |
-| Door/window, motion, flood, smoke, CO sensor              | the matching Gladys sensor                                          |
-| Temperature, light, humidity, power, energy sensors       | the matching Gladys sensor                                          |
-| Battery level                                             | a battery feature                                                   |
-| Remote, push button, S1/S2 inputs with scene activation   | one button per key, and the "Fibaro remote or button" trigger       |
+| In the box                                                | In Gladys                                                            |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| Relay, wall plug (binary switch)                          | a switch, with its power and energy when the module measures them    |
+| Dimmer (Dimmer 2, Walli Dimmer…)                          | a light (on/off, brightness) when it drives a lamp, else a dimmer    |
+| RGBW controller                                           | a light: on/off, brightness, color                                   |
+| Roller shutter (Roller Shutter 2/3, Walli Roller Shutter) | a shutter: position, open, close, stop                               |
+| Shutter without position                                  | open, close, stop                                                    |
+| Thermostatic head, thermostat, HVAC                       | a thermostat: setpoint, mode (off, heat, cool, auto), heating state  |
+| Door lock                                                 | a lock: locking always; unlocking only with the option               |
+| Gate, garage door, motorized door (barrier, Gate role)    | its state, and Open, Close, Stop buttons; Open only with the option  |
+| Gate on a relay (Gate or Garage door role)                | the relay contact, and an Open button (a pulse) only with the option |
+| Water or gas valve (valve type, Valve role)               | its state, and Open and Close buttons, both only with the option     |
+| Door/window, motion, flood, smoke, CO sensor              | the matching Gladys sensor                                           |
+| Temperature, light, humidity, power, energy sensors       | the matching Gladys sensor                                           |
+| Battery level                                             | a battery feature                                                    |
+| Remote, push button, S1/S2 inputs with scene activation   | one button per key, and the "Fibaro remote or button" trigger        |
 
 Each device is named after its room, as in the box: `Wall plug (Living
 room)`. Left out: the disabled and hidden devices, the users and phones of
 the box, and the devices of the plugins (HC2) and Quick Apps (HC3), unless
 you turn on **Also offer the plugins and Quick Apps**.
 
-**Opening and unlocking are off by default.** Gladys closes and stops a
-gate, a garage door or a motorized door, and locks a lock, but never opens or
+**Opening, unlocking and valves are off by default.** Gladys closes and stops
+a gate, a garage door or a motorized door, and locks a lock, but never opens or
 unlocks them until you turn on **Allow opening gates, garage doors and doors**
-(`allow_gates`) or **Allow unlocking the door locks** (`allow_unlock`).
-Otherwise the command is refused with a message and nothing is sent. With the
-option on, Gladys reads the state of the device from the box again just
-before: it refuses when the state is unknown or the device is reported dead,
-and sends nothing when it is already open or unlocked. A gate added with
-version 0.1.1 (offered as a shutter then) keeps its features, with the same
-rule. Never tested on a real gate or lock.
+(`allow_gates`) or **Allow unlocking the door locks** (`allow_unlock`). A
+water or gas valve is neither opened nor closed (opening may flood, closing
+cuts the water) until you turn on **Allow opening and closing the valves**
+(`allow_valves`). Otherwise the command is refused with a message and nothing
+is sent. With the option on, Gladys reads the state of the device from the box
+again just before: it refuses when the state is unknown or the device is
+reported dead, and sends nothing when it is already clearly open (or unlocked,
+or in the state asked for a valve). A Stop, Close or Lock leaves at once and
+cancels an opening or an unlocking still waiting. A gate driven by a plain
+relay only has an Open button (a pulse): Gladys cannot know whether it is open,
+it only checks that it answers. A gate driven by a shutter module stays a
+shutter for Gladys: set its role to Gate or Garage door in the box. Never
+tested on a real gate, lock or valve.
+
+**After updating from 0.1.1.** The devices already added keep their features,
+but an opening, unlocking or valve command is refused while its option is off:
+the 0.1.1 scenes that opened a gate, unlocked a lock or drove a valve then fail
+with that message. A shutter added in 0.1.1 as a switch or a dimmer shows
+"Update" in Discovery: that button replaces its On/off and Level features with
+Position and Open/close, and their history is deleted. A gate added in 0.1.1 as
+a shutter keeps its shutter features, with the same rule; a gate added as a
+switch loses that feature (and its history) on update.
 
 A device the box reports as **dead** (it no longer answers: battery, range,
 power) keeps a badge with an orange dot in Gladys until it answers again.

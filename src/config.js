@@ -14,6 +14,7 @@ export const DEFAULTS = {
   sensor_interval: SENSOR_INTERVAL.default,
   allow_gates: false,
   allow_unlock: false,
+  allow_valves: false,
 };
 
 /**
@@ -73,6 +74,7 @@ export function normalizeConfig(raw = {}) {
     // Opening a gate / door and unlocking: only when the user ticked them (true, never "true").
     allowGates: c.allow_gates === true,
     allowUnlock: c.allow_unlock === true,
+    allowValves: c.allow_valves === true,
     sensorInterval: Math.round(bounded(c.sensor_interval, SENSOR_INTERVAL)),
   };
 }
