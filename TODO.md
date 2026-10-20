@@ -147,7 +147,8 @@ up to date at the end of every milestone.
   no switch feature of 0.1.1 is ever kept on a gate. Valves (`valve` word,
   Valve / WaterValve / GasValve roles): read-only `valve` (1 open) + `open`
   / `close` push, both behind `allow_valves` (on = open for a relay valve,
-  an assumption); a 0.1.1 `binary` is kept, guarded both ways. Protective
+  an assumption); a 0.1.1 `binary` is kept read-only (no writer: history
+  kept, no "everything off" reaches the valve). A thermostat is never a valve. Protective
   calls (`protective: true`: stop, close, secure, position 0) skip the queue
   and bump a per-device cancel counter; a guarded call checks it after the
   re-read and right before callAction. `skip` only when clearly open (open,

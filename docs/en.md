@@ -69,7 +69,10 @@ reported dead, and sends nothing when it is already clearly open (or unlocked,
 or in the state asked for a valve). A Stop, Close or Lock leaves at once and
 cancels an opening or an unlocking still waiting. A gate driven by a plain
 relay only has an Open button (a pulse): Gladys cannot know whether it is open,
-it only checks that it answers. A gate driven by a shutter module stays a
+it only checks that it answers. On a step-by-step gate, that pulse may also
+stop or close it; the relay must be set to pulse mode in the box. For a valve
+on a relay, "relay on" is read as "valve open": if your valve works the
+other way round, Open and Close are swapped. A gate driven by a shutter module stays a
 shutter for Gladys: set its role to Gate or Garage door in the box. Never
 tested on a real gate, lock or valve.
 
@@ -80,7 +83,10 @@ with that message. A shutter added in 0.1.1 as a switch or a dimmer shows
 "Update" in Discovery: that button replaces its On/off and Level features with
 Position and Open/close, and their history is deleted. A gate added in 0.1.1 as
 a shutter keeps its shutter features, with the same rule; a gate added as a
-switch loses that feature (and its history) on update.
+switch loses that feature (and its history) on update. A valve added in
+0.1.1 as a switch keeps its On/off feature and its history, but read-only:
+only the Open and Close buttons drive the valve, and the 0.1.1 scenes that
+used that switch must move to those buttons.
 
 A device the box reports as **dead** (it no longer answers: battery, range,
 power) keeps a badge with an orange dot in Gladys until it answers again.

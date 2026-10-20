@@ -215,6 +215,10 @@ export function isLock(dev) {
 
 /** A valve: the word valve in its type, or a valve role picked in the box. */
 export function isValve(dev) {
+  // A thermostatic valve head is a thermostat.
+  if (isThermostat(dev)) {
+    return false;
+  }
   const words = wordsOf(dev);
   return (words.has('valve') && !words.has('sensor')) || VALVE_ROLES.has(dev.properties.deviceRole);
 }
@@ -902,27 +906,18 @@ class DeviceMapper {
     if (closeAction) {
       this.pushButton('close', 'Close', guarded(closeAction, 0));
     }
-    // Legacy: a valve created as a switch by 0.1.1 keeps its on/off feature.
-    if (this.existing.has('binary') && openAction && closeAction) {
+    // Legacy: a valve created as a switch by 0.1.1 keeps its on/off feature,
+    // read-only (its history stays; no "everything off" can close the valve):
+    // only the Open and Close buttons drive it.
+    if (this.existing.has('binary')) {
       this.add(
         'binary',
         'On/off',
         { category: C.SWITCH, type: T.SWITCH.BINARY },
-        {
-          props: ['value'],
-          read: (p) => binaryOf(p.value),
-          write: (value) => {
-            const wanted = strictNumber(value, 0, 1, name);
-            if (wanted !== 0 && wanted !== 1) {
-              throw new Error(`${name}: invalid value ${value} (expected 0 or 1)`);
-            }
-            return [wanted === 1 ? guarded(openAction, 1) : guarded(closeAction, 0)];
-          },
-        },
+        { props: ['value'], read: (p) => binaryOf(p.value) },
       );
     }
   }
-
   setpoint(key, name, { props, actions, minProp, maxProp }) {
     const dev = this.dev;
     const present = props.filter((prop) => hasProp(dev, prop));

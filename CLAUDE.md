@@ -57,7 +57,7 @@ test/helpers/       a fake Fibaro box; Gladys is the SDK's fake
 
 - **External ids are forever**: device = `fibaro:<Fibaro device id>`, feature
   = `<role>` (`binary`, `brightness`, `dimmer`, `color`, `position`, `state`,
-  `lock`, `gate`, `open`, `close`, `stop`, `setpoint`, `cooling-setpoint`, `mode`, `operating-state`,
+  `lock`, `gate`, `relay`, `valve`, `open`, `close`, `stop`, `setpoint`, `cooling-setpoint`, `mode`, `operating-state`,
   `opening`, `motion`, `leak`, `smoke`, `co`, `vibration`, `value`,
   `temperature`, `humidity`, `illuminance`, `co2`, `pressure`, `noise`,
   `power`, `energy`, `voltage`, `current`, `battery`, `button-<keyId>`,

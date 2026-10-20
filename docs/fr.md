@@ -71,7 +71,11 @@ déjà clairement ouvert (ou déverrouillé, ou dans l'état demandé pour une
 vanne). Un Stop, un Fermer ou un Verrouiller part tout de suite et annule une
 ouverture ou un déverrouillage encore en attente. Un portail piloté par un
 simple relais n'a qu'un bouton Ouvrir (une impulsion) : Gladys ne peut pas
-savoir s'il est ouvert, elle vérifie seulement qu'il répond. Un portail piloté
+savoir s'il est ouvert, elle vérifie seulement qu'il répond. Sur un portail à
+commande pas à pas, cette impulsion peut aussi l'arrêter ou le fermer ; le
+relais doit être réglé en mode impulsion dans la box. Pour une vanne sur un
+relais, « relais activé » est lu comme « vanne ouverte » : si votre vanne
+fonctionne à l'inverse, Ouvrir et Fermer sont inversés. Un portail piloté
 par un module de volet reste un volet pour Gladys : réglez son rôle sur Portail
 ou Porte de garage dans la box. Jamais testé sur un vrai portail, une vraie
 serrure ni une vraie vanne.
@@ -85,7 +89,11 @@ variateur apparaît dans Découverte avec « Mettre à jour » : ce bouton rempl
 ses fonctions Marche/arrêt et Niveau par Position et Ouvrir/fermer, et leur
 historique est supprimé. Un portail ajouté en 0.1.1 comme volet garde ses
 fonctions volet, avec la même règle ; un portail ajouté comme interrupteur
-perd cette fonction (et son historique) à la mise à jour.
+perd cette fonction (et son historique) à la mise à jour. Une vanne ajoutée
+en 0.1.1 comme interrupteur garde sa fonction Marche/arrêt et son historique,
+mais en lecture seule : seuls les boutons Ouvrir et Fermer pilotent la vanne,
+et les scènes 0.1.1 qui utilisaient cet interrupteur doivent passer à ces
+boutons.
 
 Un appareil que la box signale comme **mort** (il ne répond plus : pile,
 portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à

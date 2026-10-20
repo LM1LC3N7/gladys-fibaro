@@ -267,11 +267,56 @@ test('I4: a valve is never a switch: its state and Open / Close, both guarded', 
   assert.equal(close.decide({ value: 'true' }), 'send');
   assert.throws(() => close.decide({}), /valve state unknown/);
 
-  // Created as a switch by 0.1.1: the on/off feature is kept, guarded both ways.
+  // Created as a switch by 0.1.1: the on/off feature is kept read-only (its
+  // history stays), only Open and Close drive the valve.
   const legacy = mapDevice(valve, undefined, new Set(['binary']));
-  assert.ok(legacy.features.some((f) => f.key === 'binary'));
-  assert.equal(legacy.writers.binary(0)[0].guard, GUARDS.VALVES);
-  assert.equal(legacy.writers.binary(1)[0].guard, GUARDS.VALVES);
+  const binary = legacy.features.find((f) => f.key === 'binary');
+  assert.deepEqual([binary.category, binary.type, binary.read_only], [C.SWITCH, 'binary', true]);
+  assert.equal(legacy.writers.binary, undefined);
+  assert.equal(legacy.readers.find((r) => r.key === 'binary').read({ value: true }), 1);
+});
+
+test('I5 / S12: the 0.1.1 on/off of a valve cannot be controlled, even with allow_valves', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 1_760_000_000_000 });
+  const box = fakeFibaro({ devices: [VALVE] });
+  const gladys = createFakeGladys({ config: { ...BASE, allow_valves: true } });
+  const ext = 'ext:test-integration:fibaro:700';
+  const created = [{ external_id: ext, features: [{ external_id: `${ext}:binary` }] }];
+  gladys.devices = created;
+  gladys.getDevices = async () => created;
+  const app = new FibaroApp({
+    gladys,
+    connect: box.connect,
+    now: () => Date.now(),
+    logger: { debug() {}, info() {}, warn() {}, error() {} },
+  });
+  registerHandlers(gladys, app);
+  await gladys.connect();
+  await settle();
+  t.after(() => app.stop());
+  t.mock.timers.tick(0);
+  await settle();
+  const device = gladys.fake.discoveredDevices.find((d) => d.external_id === ext);
+  assert.deepEqual(
+    device.features.map((f) => `${f.external_id.split(':').at(-1)} ro=${f.read_only}`),
+    ['valve ro=true', 'open ro=false', 'close ro=false', 'binary ro=true'],
+    'nothing lost',
+  );
+  await assert.rejects(
+    app.setValue({}, { external_id: `${ext}:binary` }, 0),
+    /cannot be controlled/,
+  );
+  assert.deepEqual(box.actions, [], 'an everything off never reaches the valve');
+});
+
+test('S14: a thermostatic head whose type has the word valve is a thermostat', () => {
+  const d = dev({
+    type: 'com.acme.thermostaticValve',
+    baseType: 'com.fibaro.hvacSystemHeat',
+    actions: ['setHeatingThermostatSetpoint', 'setThermostatMode'],
+    properties: { heatingThermostatSetpoint: 20, thermostatMode: 'Heat' },
+  });
+  assert.equal(roleOf(d), 'thermostat');
 });
 
 test('I4: through the app, valve commands are refused while allow_valves is off', async (t) => {

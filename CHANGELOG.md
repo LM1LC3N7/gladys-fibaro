@@ -40,6 +40,8 @@ the notes of the version's GitHub Release.
 - Water and gas valves (a valve type or role) are no longer switches: their
   state (read-only) and Open and Close buttons, both off by default behind
   the new "Allow opening and closing the valves" option (`allow_valves`).
+  A relay valve: relay on is read as open. A thermostatic valve head stays a
+  thermostat.
 - With the option on, opening, unlocking and valve commands are decided on
   the state read again from the box just before (refused when unknown or the
   device is dead; nothing sent, and logged, when it is already clearly open,
@@ -56,7 +58,9 @@ the notes of the version's GitHub Release.
   dimmer shows "Update" in Discovery: it replaces On/off and Level with
   Position and Open/close, and their history is deleted. A gate added as a
   shutter keeps its shutter features (opening guarded); a gate added as a
-  switch loses that feature and its history on "Update".
+  switch loses that feature and its history on "Update". A valve added as a
+  switch keeps its On/off feature and history, read-only: only Open and Close
+  drive it, and the 0.1.1 scenes using that switch must move to the buttons.
 - "Test the connection" no longer counts the hidden technical nodes of the box
   (the Z-Wave parent of each module) as devices left out, and names the
   Fibaro types of the devices with nothing to offer.
