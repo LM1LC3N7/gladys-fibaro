@@ -92,8 +92,9 @@ everything off" or a scene opening the shutters) when:
   therefore a gate. Exception: a name with fenêtre, velux, window or Fenster
   stays a shutter;
 - it is a plain relay, without a lamp role or category, whose name **starts**
-  with the gate ("Portail", "Gate", "Garage", "Porte de garage", "Hoftor"…)
-  and has no appliance word in it (heating, radiator, freezer, fridge, pump,
+  with the gate ("Portail", "Gate", "Porte de garage", "Hoftor"…, or exactly
+  "Garage", with at most a number or a side: "Garage 2", "Garage left";
+  "Garage siren" stays a switch) and has no appliance word in it (heating, radiator, freezer, fridge, pump,
   ventilation, intercom, bell, water heater, washer, dryer, watering, plug,
   light, lamp, in French or English): "Chauffage garage" or "Pompe portail"
   stay switches.

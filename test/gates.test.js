@@ -247,8 +247,39 @@ test('issue #4: a gate on a shutter module is a gate, by its role, category or n
   assert.equal(relayRole('Portail'), 'gate');
   // Review 2, B3: for a relay, the gate must be the main word of the name and
   // no appliance word may be in it; the shutter modules keep the broad rule.
-  for (const name of ['Garage', 'Portail entrée', 'Porte de garage', 'Hoftor', 'Gate', 'Tor']) {
+  for (const name of [
+    'Garage',
+    'Garage 2',
+    'Garage2',
+    'Garage gauche',
+    'garage Right ',
+    'Portail entrée',
+    'Porte de garage',
+    'Hoftor',
+    'Gate',
+    'Tor',
+    'Portail Fanny', // review 3: appliance words are whole words only
+    'Portail Spotify',
+  ]) {
     assert.equal(relayRole(name), 'gate', name);
+  }
+  // Review 3, B4 (H7): "Garage" only as the whole name, with a number or a side.
+  for (const name of [
+    'Garage compresseur',
+    'Garage chargeur',
+    'Garage borne VE',
+    'Garage VMC',
+    'Garage sirène',
+    'Garage alarme',
+    'Garage déshumidificateur',
+    'Garage onduleur',
+    'Garage 2 sirène',
+    'Portail fan',
+    'Portail spot',
+    'Gate bell',
+    'Portail lave-linge',
+  ]) {
+    assert.equal(relayRole(name), 'switch', name);
   }
   for (const name of [
     'Chauffage garage',
@@ -462,6 +493,25 @@ test('review 2 / H6: "Chauffage garage" created as a switch stays a switch and t
     published.features.map((f) => `${f.external_id.split(':').at(-1)} ${f.category}`),
     [`binary ${C.SWITCH}`, `power ${C.SWITCH}`, `energy ${C.SWITCH}`],
     'nothing lost, same categories',
+  );
+});
+
+test('review 3 / H7: "Garage sirène" created as a switch stays a switch and turns off', async (t) => {
+  const box = fakeFibaro({ devices: [...hc3Devices(), relay(330, 'Garage sirène')] });
+  const { gladys } = await setup(t, {
+    box,
+    created: (ids) => [
+      { name: 'Garage sirène (Entrée)', external_id: ids(330).device, features: [onOff(ids, 330)] },
+    ],
+  });
+  const legacy = gladys.devices.find((d) => d.name === 'Garage sirène (Entrée)');
+  const off = await gladys.fake.setValue(legacy, legacy.features[0], 0);
+  assert.equal(off.success, true, off.error);
+  assert.deepEqual(sent(box), ['330:turnOff']);
+  const published = gladys.fake.discoveredDevices.find((d) => d.external_id === legacy.external_id);
+  assert.equal(
+    published.features.find((f) => f.external_id.endsWith(':binary')).category,
+    C.SWITCH,
   );
 });
 

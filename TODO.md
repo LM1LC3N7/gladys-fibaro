@@ -227,6 +227,13 @@ false` (a missing or unreadable `dead` is refused). A gate with a null
       `binary` was created before keeps a writer (not offered): 0 = turnOff
       (protective), 1 refused with the "Update" message (replaces the 0.1.2
       review rule "no writer on a gate's old switch").
+    - Review round 3 (B4, H7): "Garage" followed by anything ("Garage
+      sirène", "Garage compresseur", "Garage borne VE"…) made a relay a gate.
+      For a relay, "garage" only as the whole name with at most a number or
+      a side (`garage(\s*\d+|\s+(gauche|droite|left|right|nord|sud|est|ouest))?\s*$`);
+      the other anchored names and the appliance list stay. Appliance stems
+      match at a word start, the short English words (fan, dry, bell, heat,
+      spot, lave, lamp, light, pump, plug, wash) only as whole words.
     - M1 refusal message, M2 docs (lamp relay keeps its history), M3 fr docs
       (Tor, role ids), M4 documented (an output hidden on purpose shows up in
       Discovery only), M5 `isLight` excludes sky / sensor / traffic role

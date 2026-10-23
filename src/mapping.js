@@ -221,14 +221,32 @@ const GATE_NAME = new RegExp(
 const WINDOW_NAME = /fen[eê]tre|velux|window|fenster/iu;
 /**
  * A plain relay is a gate by its name only when the gate is the main word of
- * the name, at its start ("Portail", "Garage", "Porte de garage", "Hoftor"),
- * never "Chauffage garage" nor "Pompe portail".
+ * the name, at its start ("Portail", "Porte de garage", "Hoftor"), never
+ * "Chauffage garage" nor "Pompe portail". "Garage" only as the whole name,
+ * with at most a number or a side ("Garage 2", "Garage gauche"): "Garage
+ * sirène", "Garage compresseur" stay switches.
  */
-const RELAY_GATE_NAME =
-  /^\s*(portails?|portillons?|gates?|barri[eè]res?|barriers?|porte\s+(de\s+|du\s+)?garage|garage\s*door|garagentor|garage|tor|(einfahrts|hof|roll|schiebe|garten|sektional|garagen|flügel|falt|kipp)tor)($|[^\p{L}])/iu;
-/** Words of an appliance: a relay with one of them in its name is never a gate. */
-const NOT_A_GATE_RELAY_NAME =
-  /chauff|radiat|congel|congél|frigo|pompe|pump|ventil|interphone|sonnette|ballon|lave|s[eè]che|arrosage|prise|plug|lumi|[ée]clair|lampe|lamp|light|spot|heat|freez|fridge|intercom|bell|wash|dry|water|boiler|fan/iu;
+const RELAY_GATE_NAME = new RegExp(
+  [
+    '^\\s*garage(\\s*\\d+|\\s+(gauche|droite|left|right|nord|sud|est|ouest))?\\s*$',
+    '^\\s*(portails?|portillons?|gates?|barri[eè]res?|barriers?|porte\\s+(de\\s+|du\\s+)?garage|garage\\s*door|garagentor|tor|(einfahrts|hof|roll|schiebe|garten|sektional|garagen|flügel|falt|kipp)tor)($|[^\\p{L}])',
+  ].join('|'),
+  'iu',
+);
+/**
+ * Words of an appliance: a relay with one of them in its name is never a
+ * gate. Stems match at the start of a word (chauffage, chauffe-eau), the
+ * short English words only as whole words ("Fanny", "Spotify" are not).
+ */
+const NOT_A_GATE_RELAY_NAME = new RegExp(
+  '(^|[^\\p{L}])(' +
+    [
+      '(chauff|radiat|congel|congél|frigo|pompe|ventil|interphone|sonnette|ballon|s[eè]che|arrosage|prise|lumi|[ée]clair|lampe|heater|freez|fridge|intercom|washer|dryer|water|boiler)\\p{L}*',
+      'lave|fan|fans|dry|bell|heat|spot|spots|lamp|lamps|light|lights|pump|pumps|plug|plugs|wash',
+    ].join('|') +
+    ')($|[^\\p{L}])',
+  'iu',
+);
 
 /** The name of the device says gate (and no window word). */
 const gateName = (dev) => GATE_NAME.test(dev.name ?? '') && !WINDOW_NAME.test(dev.name ?? '');

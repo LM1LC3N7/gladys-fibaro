@@ -95,8 +95,10 @@ volets », « tout éteindre » ou une scène qui ouvre les volets) quand :
   donc un portail. Exception : un nom avec fenêtre, velux, window ou Fenster
   reste un volet ;
 - c'est un simple relais, sans rôle ni catégorie de lampe, dont le nom
-  **commence** par le portail (« Portail », « Portail entrée », « Garage »,
-  « Porte de garage », « Hoftor »…) et ne contient aucun mot d'appareil
+  **commence** par le portail (« Portail », « Portail entrée », « Porte de
+  garage », « Hoftor »…, ou exactement « Garage », avec au plus un numéro ou
+  un côté : « Garage 2 », « Garage gauche » ; « Garage sirène » reste un
+  interrupteur) et ne contient aucun mot d'appareil
   (chauffage, radiateur, congélateur, frigo, pompe, ventilation, interphone,
   sonnette, ballon, lave, sèche, arrosage, prise, lumière, éclairage, lampe,
   light…) : « Chauffage garage » ou « Pompe portail » restent des
