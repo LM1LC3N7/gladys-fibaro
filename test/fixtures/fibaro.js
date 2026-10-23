@@ -356,9 +356,10 @@ export function shutterDevices() {
       properties: { value: 40, deviceRole: 'BlindsWithPositioning' },
       actions: ['turnOn', 'turnOff', 'setValue', 'open', 'close', 'stop'],
     }),
-    // An HC2: every property is a string.
+    // An HC2: every property is a string. (Not "Volet garage": since 0.1.3 a
+    // name with "garage" is a gate, the safe way.)
     {
-      ...device(240, 'Volet garage', 'com.fibaro.FGR221', 'com.fibaro.rollerShutter', {
+      ...device(240, 'Volet atelier', 'com.fibaro.FGR221', 'com.fibaro.rollerShutter', {
         room: 221,
         actions: ['open', 'close', 'stop', 'setValue'],
       }),

@@ -191,13 +191,39 @@ const GATE_ROLE_WORDS = ['barrier', 'gate', 'gates', 'garage', 'door', 'doors', 
 const NOT_A_GATE = ['sensor', 'lock', 'detector', 'bell'];
 const VALVE_ROLES = new Set(['Valve', 'WaterValve', 'GasValve']);
 /**
- * The name of a gate on a shutter module whose role was left to a blind role
- * (issue #4: "Portail" offered as a shutter): portail, portillon, gate,
- * barrière, garage door / porte de garage, Garagentor, Tor, cancello, or the
- * name "Garage" alone. "Volet garage" stays a shutter.
+ * The name of a gate on a shutter module or a relay whose role was left to
+ * another role (issue #4: "Portail" offered as a shutter). When in doubt, a
+ * gate (the safe way: opening behind allow_gates): any name with garage /
+ * garaje, portail, portillon, barrière, cancello, portón, portão, poort,
+ * garagedeur, porte sectionnelle / basculante, the whole words gate and tor,
+ * and the German -tor compounds (Rolltor, Hoftor, Einfahrtstor…).
  */
-const GATE_NAME =
-  /(^|[^\p{L}])(portails?|portillons?|gates?|barri[eè]res?|barriers?|garagentor|tor|cancello|portón)($|[^\p{L}])|garage\s*door|porte\s+(de\s+|du\s+)?garage|^\s*garage\s*$/iu;
+const GATE_NAME = new RegExp(
+  [
+    'garage',
+    'garaje',
+    'portail',
+    'portillon',
+    'barri[eè]re',
+    'barrier',
+    'cancello',
+    'port[oó]n',
+    'port[aã]o',
+    'poort',
+    'porte\\s+(sectionnelle|basculante)',
+    '(^|[^\\p{L}])gates?($|[^\\p{L}])',
+    '(^|[^\\p{L}])tor($|[^\\p{L}])',
+    '(einfahrts|hof|roll|schiebe|garten|sektional|garagen|flügel|falt|kipp)tor',
+  ].join('|'),
+  'iu',
+);
+/** An explicit window word keeps "Volet fenêtre garage" a shutter. */
+const WINDOW_NAME = /fen[eê]tre|velux|window|fenster/iu;
+/** A relay named after a gate stays a relay when its name says plug or lamp. */
+const NOT_A_GATE_RELAY_NAME = /prise|plug|lumi|[ée]clair|lampe|lamp|light|spot/iu;
+
+/** The name of the device says gate (and no window word). */
+const gateName = (dev) => GATE_NAME.test(dev.name ?? '') && !WINDOW_NAME.test(dev.name ?? '');
 
 /** The HC3 / Yubii categories of a device ("lights", "blinds", "gates"…), lower case. */
 const categoriesOf = (dev) =>
@@ -211,8 +237,10 @@ const roleWordsOf = (dev) => new Set(typeWords(dev.properties.deviceRole));
  * - a type or base type with the word barrier, gate, garage or door,
  * - a role picked in the box with one of these words (Gate, GarageDoor, in
  *   any case or spelling), or the HC3 / Yubii "gates" category,
- * - a shutter-like device (a shutter module set up for a gate, as on the
- *   Yubii Home of issue #4) named portail, gate, porte de garage…
+ * - by its name (GATE_NAME, no window word): a shutter-like device (a shutter
+ *   module set up for a gate, as on the Yubii Home of issue #4), or a plain
+ *   relay without a lamp role, category or plug / lamp word; never a lock
+ *   nor a valve by its name.
  * Never a sensor, a lock nor a bell; never a switch, a dimmer nor a shutter:
  * opening it is off until the user allows it (allow_gates).
  */
@@ -230,9 +258,15 @@ export function isGate(dev) {
   ) {
     return true;
   }
-  // By its name, only a device that would otherwise be a shutter (never a
-  // light, a plug or a relay named "Prise garage").
-  return looksLikeShutter(dev) && GATE_NAME.test(dev.name ?? '');
+  if (!gateName(dev) || isLock(dev) || isValve(dev)) {
+    return false;
+  }
+  if (looksLikeShutter(dev)) {
+    return true;
+  }
+  // A relay named "Portail": a gate on a relay (its turnOn is the pulse),
+  // unless it is a lamp or a plug ("Prise garage", "Lumière portail").
+  return isRelay(dev) && !isLight(dev) && !NOT_A_GATE_RELAY_NAME.test(dev.name ?? '');
 }
 
 /** A lock: the secure / unsecure actions, or the word lock in its type. */
@@ -393,6 +427,8 @@ export function roleOf(dev) {
 
 /** Words of the HC3 / Yubii roles of a lamp: Light, OutdoorLight, GardenLamp, NightLamp, Bracket… */
 const LIGHT_ROLE_WORDS = ['light', 'lights', 'lamp', 'lamps', 'lighting', 'bracket', 'chandelier'];
+/** SkyLight (a roof window), LightSensor, TrafficLight: not a lamp. */
+const NOT_A_LIGHT_ROLE_WORDS = ['sky', 'skylight', 'sensor', 'traffic'];
 
 /**
  * A switch that drives a lamp: HC2 isLight, an HC3 / Yubii lamp role (Light,
@@ -402,7 +438,8 @@ const LIGHT_ROLE_WORDS = ['light', 'lights', 'lamp', 'lamps', 'lighting', 'brack
 export const isLight = (dev) =>
   toBool(dev.properties.isLight) === true ||
   dev.properties.deviceRole === 'Light' ||
-  anyWord(roleWordsOf(dev), LIGHT_ROLE_WORDS) ||
+  (anyWord(roleWordsOf(dev), LIGHT_ROLE_WORDS) &&
+    !anyWord(roleWordsOf(dev), NOT_A_LIGHT_ROLE_WORDS)) ||
   categoriesOf(dev).includes('lights') ||
   dev.type === 'com.fibaro.FGD212' ||
   Boolean(dev.interfaces?.includes('light'));
@@ -799,12 +836,22 @@ class DeviceMapper {
       });
       return;
     }
-    // A one-way motor (no value, no state at all): like a relay, its position
-    // cannot be known; opening is decided on the device being alive only.
-    const noFeedback = !hasProp(dev, 'state') && !hasProp(dev, 'value');
+    // A one-way motor: no setValue (it can have no position) and no `value` /
+    // `state` key at all (absent, not null), in the inventory and in the
+    // device read again. Like a relay, its position cannot be known: opening
+    // is decided on the box saying it is alive (dead: false, read) only.
+    const keyless = (p) =>
+      Boolean(p) &&
+      typeof p === 'object' &&
+      !Object.hasOwn(p, 'value') &&
+      !Object.hasOwn(p, 'state');
+    const noFeedback = !has(dev, 'setValue') && keyless(this.p);
     const decideOpening = (p) => {
       deadCheck(name, p);
-      if (noFeedback && (p?.state ?? null) === null && (p?.value ?? null) === null) {
+      if (noFeedback && keyless(p)) {
+        if (toBool(p.dead) !== false) {
+          throw new Error(`${name}: not known to be alive, opening refused (command not sent)`);
+        }
         return 'send';
       }
       const state = gateStateOf(p);
@@ -853,10 +900,36 @@ class DeviceMapper {
       }
     }
     // No shutter feature on a gate, ever, not even the `state` / `position` of
-    // a gate created as a shutter by 0.1.1 or 0.1.2 (issue #4): a "close the
-    // shutters" or a scene opening the shutters must never reach it. Those
-    // created features have no writer any more (a command is refused, nothing
-    // sent) until the user clicks "Update" in Discovery.
+    // a gate created as a shutter by 0.1.1 or 0.1.2 (issue #4): they are not
+    // offered any more, and "Update" in Discovery removes them. Until then
+    // they keep a writer that only closes or stops (protective, never
+    // blocked); anything that would open is refused, nothing sent.
+    const legacyRefusal = (value) =>
+      new Error(
+        `${name} became a gate in 0.1.3: this old shutter feature can only close or stop ` +
+          `(asked ${JSON.stringify(value)}, command not sent). Open Discovery, press "Update", ` +
+          'then use the Open button.',
+      );
+    if (this.existing.has('state')) {
+      this.writers.state = (value) => {
+        const wanted = strictNumber(value, -1, 1, name);
+        if (wanted === COVER_STATE.CLOSE && closeCall) {
+          return [closeCall];
+        }
+        if (wanted === COVER_STATE.STOP && stopCall) {
+          return [stopCall];
+        }
+        throw legacyRefusal(value);
+      };
+    }
+    if (this.existing.has('position')) {
+      this.writers.position = (value) => {
+        if (strictNumber(value, 0, 100, name) === 0 && closeCall) {
+          return [closeCall];
+        }
+        throw legacyRefusal(value);
+      };
+    }
   }
 
   /**

@@ -387,8 +387,8 @@ test('M3 / S9: nothing skipped unless clearly open (open, true, 95 % and more)',
     properties: { value: 50 },
   });
   assert.equal(mapDevice(gate).writers.open(1)[0].decide({ value: 50 }), 'send', 'half open');
-  // 0.1.3 (issue #4): the legacy position / state of a gate are no longer
-  // driven (never a shutter): no writer, a command is refused.
+  // 0.1.3 (issue #4): the legacy position / state of a gate only close or
+  // stop until "Update"; every other value is refused, nothing sent.
   const fgr = dev({
     type: 'com.fibaro.FGR223',
     baseType: 'com.fibaro.rollerShutter',
@@ -396,8 +396,10 @@ test('M3 / S9: nothing skipped unless clearly open (open, true, 95 % and more)',
     properties: { value: 99, deviceRole: 'Gate' },
   });
   const m = mapDevice(fgr, undefined, new Set(['position', 'state']));
-  assert.equal(m.writers.position, undefined);
-  assert.equal(m.writers.state, undefined);
+  assert.ok(!m.features.some((f) => f.key === 'position' || f.key === 'state'), 'not offered');
+  assert.deepEqual(m.writers.position(0), [{ name: 'close', args: [], protective: true }]);
+  assert.throws(() => m.writers.position(30), /became a gate/);
+  assert.throws(() => m.writers.state(1), /became a gate/);
 });
 
 test('M4 / S11: no position for a relay with a blinds role (a boolean value)', () => {
@@ -526,10 +528,17 @@ test('M8 / I2: the manifest and the docs say what is off and what the update doe
   const en = readFileSync(new URL('../docs/en.md', import.meta.url), 'utf8');
   assert.match(fr, /historique\s+est\s+supprimé/);
   assert.match(en, /their\s+history\s+is\s+deleted/);
-  assert.match(fr, /rôle\s+Portail\s+ou\s+Porte de garage dans la box/);
-  assert.match(en, /Gate or\s+Garage door\s+role\s+in the box/);
+  assert.match(
+    fr,
+    /rôle\s+Portail\s+\(`Gate`\)\s+ou\s+Porte de garage\s+\(`GarageDoor`\)\s+dans la box/,
+  );
+  assert.match(en, /Gate \(`Gate`\) or Garage\s+door \(`GarageDoor`\)\s+role\s+in the box/);
   // 0.1.3 (issue #4): "Update" after a gate or a lamp relay changes category.
-  assert.match(fr, /Mettre à jour[\s\S]*supprime avec leur historique/);
+  assert.match(fr, /supprime ces fonctions volet avec leur historique/);
+  assert.match(fr, /seulement le \*\*fermer ou\s+l'arrêter\*\*/);
+  assert.match(en, /can only \*\*close or stop\*\* it/);
+  assert.match(fr, /garde son\s+historique/);
+  assert.match(en, /keeps its history/);
   assert.match(en, /"Update"\s+deletes them with their history/);
   const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
   assert.match(changelog, /history\s+is\s+deleted/);

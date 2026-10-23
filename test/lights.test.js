@@ -101,6 +101,10 @@ test('a relay with a lamp role or the "lights" category is a light, never a plai
   assert.equal(isLight(relay({ deviceRole: 'Other' })), false, 'a plug stays a switch');
   assert.equal(mapDevice(relay({ deviceRole: 'Other' })).features[0].category, C.SWITCH);
   assert.equal(isLight(relay({ deviceRole: 'Kettle' })), false);
+  // Review M5: a roof window, a light sensor or a traffic light is not a lamp.
+  for (const deviceRole of ['SkyLight', 'Skylight', 'LightSensor', 'TrafficLight']) {
+    assert.equal(isLight(relay({ deviceRole })), false, deviceRole);
+  }
 });
 
 test('a hidden relay of a module whose S1/S2 keys are offered is offered too, as a light', () => {

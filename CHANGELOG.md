@@ -17,23 +17,31 @@ the notes of the version's GitHub Release.
   gate also when its role in the box contains gate, garage, door, barrier or
   portal in any spelling (`gate`, `SlidingGate`, `GarageDoors`,
   `VideoGateOpen`…), when it is in the HC3 / Yubii "gates" category, or when a
-  shutter-like device is named portail, portillon, gate, barrière, porte de
-  garage, garage door, Garagentor, Tor or "Garage" ("Volet garage" stays a
-  shutter). A gate offers its state (when it reports one) and Open / Close /
-  Stop buttons: opening only with `allow_gates` (off by default), close and
-  stop always. A gate is never a shutter, a switch or a dimmer any more, not
-  even one created as a shutter by 0.1.1 or 0.1.2: its old shutter features
-  are no longer driven (a command is refused, nothing sent) and "Update" in
-  Discovery removes them. A one-way gate motor that reports neither a value
-  nor a state is opened (once allowed) when the box says it is alive, like a
-  gate on a relay.
+  shutter-like device or a plain relay (not a lamp, a plug, a lock nor a
+  valve) has a gate name: garage, garaje, portail, portillon, barrière, porte
+  sectionnelle / basculante, cancello, portón, portão, poort, garagedeur, the
+  words gate and Tor, -tor compounds (Rolltor, Hoftor…). When in doubt, a gate
+  ("Volet garage" included); a name with a window word (fenêtre, velux,
+  window, Fenster) stays a shutter. A gate offers its state (when it reports
+  one) and Open / Close / Stop buttons: opening only with `allow_gates` (off
+  by default), close and stop always. A gate is never offered as a shutter, a
+  switch or a dimmer any more, not even one created as a shutter by 0.1.1 or
+  0.1.2: until "Update" in Discovery removes them, its old shutter features
+  only close or stop it (position 0 closes), any opening is refused with a
+  message pointing to "Update". A one-way gate motor (no setValue, no value
+  nor state key at all) is opened (once allowed) when the box says it is
+  alive, like a gate on a relay; a gate whose value or state is unknown is
+  never opened.
 - Lights (issue #4): a relay with a lamp role in the box (`Light`,
-  `OutdoorLight`, `GardenLamp`, `NightLamp`, `Bracket`…) or in the "lights"
-  category is a Gladys light, not a switch. The relay or dimmer of a module
+  `OutdoorLight`, `GardenLamp`, `NightLamp`, `Bracket`…, not `SkyLight`,
+  `LightSensor` nor `TrafficLight`) or in the "lights" category is a Gladys
+  light, not a switch (same feature id: its history stays). The relay or dimmer of a module
   that the box hides while it shows the module's S1/S2 keys is offered too, as
   its own device: an outdoor light is no longer offered as its keys only
   ("Button click"). The keys stay a separate device, a scene trigger; when
-  both carry the same name, the keys are called "<name> S1/S2".
+  both carry the same name, the keys are called "<name> S1/S2". An output
+  the user hid on purpose under such a module shows up in Discovery too
+  (nothing is created unless added).
 
 ### Changed
 

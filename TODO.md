@@ -192,8 +192,34 @@ up to date at the end of every milestone.
     S1/S2" (name only, created devices keep theirs). Also: `isLight` on any
     lamp role (`Light`, `OutdoorLight`, `GardenLamp`, `NightLamp`, `Bracket`,
     words light / lamp / lighting / bracket / chandelier) and on the `lights`
-    category; a lamp relay created as a switch changes category ("Update",
-    history of that feature lost, documented).
+    category; a lamp relay created as a switch changes category on "Update"
+    (same external id: the core updates the row, history kept).
+  - After the xhigh review (REFUSED, 2026-10-23), fixed:
+    - B1: the "no feedback" opening is only for a motor without `setValue`
+      and without any `value` / `state` key (absent, not null) in the
+      inventory AND in the device read again, and needs `toBool(dead) ===
+false` (a missing or unreadable `dead` is refused). A gate with a null
+      value is refused (hostile H4).
+    - B2: a gate's legacy `state` / `position` (created by 0.1.1 / 0.1.2) are
+      not offered but keep a writer: state CLOSE / STOP and position 0 are
+      protective close / stop; OPEN and every other position are refused,
+      nothing sent, the message points to Discovery → Update. So close and
+      stop are never blocked before "Update"; a "close the shutters" can
+      still close the gate meanwhile (protective, never an opening).
+    - I1: name rule broadened, when in doubt a gate (see `GATE_NAME`:
+      garage, garaje, portail, portillon, barrière, porte sectionnelle /
+      basculante, cancello, portón, portão, poort, garagedeur, whole words
+      gate / tor, -tor compounds); exception: a window word (fenêtre, velux,
+      window, Fenster). "Volet garage" is now a gate (documented: rename a
+      window shutter). Fixture 240 renamed "Volet atelier".
+    - I2: the name rule only when the device is neither a lock nor a valve.
+    - I3: a plain relay (turnOn only) with a gate name, no lamp role /
+      category and no plug / lamp word (prise, plug, lumi, éclair, lampe,
+      lamp, light, spot) is a gate on a relay (contact + guarded Open).
+    - M1 refusal message, M2 docs (lamp relay keeps its history), M3 fr docs
+      (Tor, role ids), M4 documented (an output hidden on purpose shows up in
+      Discovery only), M5 `isLight` excludes sky / sensor / traffic role
+      words.
   - "Not found" on `/api/devices/<id>`: likely the Gladys external id
     (`fibaro:123`) or an id of the Yubii app / web page instead of the bare
     `FIBARO_ID`, or the hidden endpoint searched by its Gladys name;

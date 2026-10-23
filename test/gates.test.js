@@ -17,6 +17,7 @@ import { FibaroError } from '../src/fibaro.js';
 import { registerHandlers } from '../src/handlers.js';
 import { buildInventory } from '../src/inventory.js';
 import {
+  COVER_STATE,
   GUARDS,
   OPENING_SENSOR_STATE,
   gateStateOf,
@@ -118,8 +119,19 @@ test('a gate created as a shutter before 0.1.3: never driven as a shutter any mo
     ['gate', 'open', 'close', 'stop'],
     'the old shutter features are not offered: "Update" in Discovery removes them',
   );
-  assert.equal(legacy.writers.get('ext:t:fibaro:250:state'), undefined, 'refused, nothing sent');
-  assert.equal(legacy.writers.get('ext:t:fibaro:250:position'), undefined);
+  // Until "Update": the old features only close or stop, never open (review B2).
+  const state = legacy.writers.get('ext:t:fibaro:250:state').write;
+  assert.deepEqual(state(COVER_STATE.CLOSE), [{ name: 'close', args: [], protective: true }]);
+  assert.deepEqual(state(COVER_STATE.STOP), [{ name: 'stop', args: [], protective: true }]);
+  assert.throws(() => state(COVER_STATE.OPEN), /became a gate in 0\.1\.3.*"Update"/);
+  assert.throws(() => state(null), /invalid value/);
+  // 250 has no setValue: its position closes with `close`.
+  const position = legacy.writers.get('ext:t:fibaro:250:position').write;
+  assert.deepEqual(position(0), [{ name: 'close', args: [], protective: true }]);
+  for (const v of [100, 50, 1]) {
+    assert.throws(() => position(v), /became a gate in 0\.1\.3/, String(v));
+  }
+  assert.throws(() => position(''), /invalid value/);
   // The external ids of the device and of its gate features do not change.
   assert.ok(legacy.writers.get('ext:t:fibaro:250:open'));
 });
@@ -162,12 +174,56 @@ test('issue #4: a gate on a shutter module is a gate, by its role, category or n
     'gate',
     'HC2 serialized list',
   );
-  for (const name of ['Portail', 'Portail coulissant', 'Portillon', 'Porte de garage', 'Garage']) {
+  // Review I1: when in doubt, a gate (opening guarded).
+  for (const name of [
+    'Portail',
+    'Portail coulissant',
+    'Portillon',
+    'Porte de garage',
+    'Garage',
+    'Garage 1',
+    'Garage gauche',
+    'Volet garage',
+    'Volet roulant garage',
+    'Porte sectionnelle',
+    'Porte basculante',
+    'Barrière',
+    'Einfahrtstor',
+    'Hoftor',
+    'Rolltor',
+    'Schiebetor',
+    'Gartentor',
+    'Sektionaltor',
+    'Tor',
+    'Puerta garaje',
+    'Garagedeur',
+    'Poort',
+    'Portão',
+    'Front gate',
+  ]) {
     assert.equal(role({ top: { name } }), 'gate', name);
   }
-  for (const name of ['Volet garage', 'Volet salon', 'Store portique']) {
+  for (const name of [
+    'Volet salon',
+    'Store portique',
+    'Moteur',
+    'Tortue',
+    'Mentor',
+    'Torii',
+    'Volet fenêtre garage',
+    'Velux garage',
+  ]) {
     assert.equal(role({ top: { name } }), 'cover', `${name} stays a shutter`);
   }
+  // Review I2: a lock or a valve named after a gate stays a lock or a valve.
+  assert.equal(
+    role({ top: { name: 'Vanne portail' }, properties: { deviceRole: 'Valve' } }),
+    'valve',
+  );
+  assert.equal(
+    role({ top: { name: 'Gâche portail' }, actions: ['open', 'close', 'secure', 'unsecure'] }),
+    'lock',
+  );
   // By name only for a shutter-like device: a plug or a light is never a gate.
   const plug = {
     ...yubiiGate({ actions: ['turnOn', 'turnOff'], properties: { value: false } }),
@@ -176,7 +232,25 @@ test('issue #4: a gate on a shutter module is a gate, by its role, category or n
     baseType: 'com.fibaro.actor',
   };
   plug.properties.deviceRole = 'Other';
-  assert.equal(roleOf(buildInventory({ devices: [plug] }).devices[0]), 'switch');
+  const relayRole = (name, properties = {}) =>
+    roleOf(
+      buildInventory({
+        devices: [{ ...plug, name, properties: { ...plug.properties, ...properties } }],
+      }).devices[0],
+    );
+  assert.equal(relayRole('Prise portail'), 'switch');
+  assert.equal(relayRole('Lumière portail'), 'switch');
+  assert.equal(relayRole('Éclairage garage'), 'switch');
+  assert.equal(relayRole('Portail', { deviceRole: 'GardenLamp' }), 'switch', 'a lamp role');
+  assert.equal(relayRole('Portail', { categories: ['lights'] }), 'switch', 'a lamp category');
+  // Review I3: a relay named "Portail" is a gate on a relay, opening guarded.
+  assert.equal(relayRole('Portail'), 'gate');
+  const relayGate = mapDevice(
+    buildInventory({ devices: [{ ...plug, name: 'Portail' }] }).devices[0],
+  );
+  assert.deepEqual(specsOf(relayGate), ['relay unknown/unknown', 'open button/push']);
+  assert.equal(relayGate.writers.open(1)[0].guard, GUARDS.GATES);
+  assert.equal(relayGate.writers.binary, undefined, 'never a switch');
   // A gate sensor and a door bell are not gates.
   assert.equal(
     role({ top: { name: 'Capteur portail' }, properties: { deviceRole: 'GateSensor' } }),
@@ -203,7 +277,35 @@ test('issue #4: the gate is never a shutter nor a switch; opening needs allow_ga
   assert.deepEqual([open.name, open.guard], ['open', GUARDS.GATES]);
   // A one-way motor: no state at all, opening decided on "alive" only.
   assert.equal(open.decide({ dead: false }), 'send');
+  assert.equal(open.decide({ dead: 'false' }), 'send', 'HC2 string');
   assert.throws(() => open.decide({ dead: true }), /dead/);
+  // Review B1: "alive" must be read, a missing or unreadable dead is refused.
+  assert.throws(() => open.decide({}), /not known to be alive/);
+  assert.throws(() => open.decide({ dead: 'unknown' }), /not known to be alive/);
+  // A value or state key in the device read again (even null): decided on it.
+  assert.throws(() => open.decide({ dead: false, value: null }), /state unknown/);
+  assert.throws(() => open.decide({ dead: false, state: 'Unknown' }), /state unknown/);
+
+  // Review B1 / H4: a gate with setValue whose value is null is never
+  // "without feedback": refused while the state is unknown.
+  const [nullValue] = buildInventory({
+    devices: [
+      yubiiGate({
+        top: { type: 'com.fibaro.FGR223', baseType: 'com.fibaro.rollerShutter' },
+        actions: ['open', 'close', 'stop', 'setValue'],
+        properties: { value: null, deviceRole: 'Gate' },
+      }),
+    ],
+  }).devices;
+  const [open3] = mapDevice(nullValue).writers.open(1);
+  for (const fresh of [{ dead: false, value: null }, { dead: false }, {}]) {
+    assert.throws(() => open3.decide(fresh), /state unknown|dead/, JSON.stringify(fresh));
+  }
+  // A null value key in the inventory: not keyless either.
+  const [nullKey] = buildInventory({
+    devices: [yubiiGate({ properties: { value: null } })],
+  }).devices;
+  assert.throws(() => mapDevice(nullKey).writers.open(1)[0].decide({ dead: false }), /unknown/);
   assert.deepEqual(m.writers.close(1), [{ name: 'close', args: [], protective: true }]);
   assert.deepEqual(m.writers.stop(1), [{ name: 'stop', args: [], protective: true }]);
 
@@ -231,16 +333,79 @@ test('issue #4: through the app, the gate offered as a gate keeps its external i
   assert.deepEqual(sent(box), ['300:close']);
 });
 
+test('review B2: before "Update", the old shutter features of a gate close and stop, never open', async (t) => {
+  const config = { ...BASE, allow_gates: true };
+  const box = fakeFibaro({
+    devices: [...hc3Devices(), yubiiGate({ properties: { state: 'Closed' } })],
+  });
+  // The device as 0.1.2 created it: a shutter state feature.
+  const { gladys } = await setup(t, {
+    config,
+    box,
+    created: (ids) => [
+      {
+        name: GATE,
+        external_id: ids(300).device,
+        features: [
+          {
+            name: 'Etat du volet',
+            external_id: ids(300).feature('state'),
+            category: C.SHUTTER,
+            type: 'state',
+            min: -1,
+            max: 1,
+            read_only: false,
+            has_feedback: false,
+            keep_history: false,
+          },
+        ],
+      },
+    ],
+  });
+  const created = gladys.devices.find((d) => d.name === GATE);
+  const [state] = created.features;
+  assert.equal((await gladys.fake.setValue(created, state, COVER_STATE.CLOSE)).success, true);
+  assert.equal((await gladys.fake.setValue(created, state, COVER_STATE.STOP)).success, true);
+  const open = await gladys.fake.setValue(created, state, COVER_STATE.OPEN);
+  assert.equal(open.success, false);
+  assert.match(open.error, /became a gate in 0\.1\.3.*Discovery, press "Update"/);
+  assert.deepEqual(sent(box), ['300:close', '300:stop'], 'even with allow_gates: no opening');
+  // Still never offered as a shutter.
+  const again = gladys.fake.discoveredDevices.find((d) => d.name === GATE);
+  assert.ok(again.features.every((f) => f.category !== C.SHUTTER));
+});
+
+test('review B1 / H4: a gate with a position whose value is null never opens', async (t) => {
+  const config = { ...BASE, allow_gates: true };
+  const fgr = yubiiGate({
+    top: { type: 'com.fibaro.FGR223', baseType: 'com.fibaro.rollerShutter' },
+    actions: ['open', 'close', 'stop', 'setValue'],
+    properties: { value: null, deviceRole: 'Gate' },
+  });
+  const box = fakeFibaro({ devices: [...hc3Devices(), fgr] });
+  const { press } = await setup(t, { config, box });
+  const open = await press(GATE, 'open');
+  assert.equal(open.success, false);
+  assert.match(open.error, /state unknown, opening refused/);
+  assert.deepEqual(sent(box), []);
+});
+
 // --- Through the app -------------------------------------------------------------
 
 const BASE = { host: '192.168.1.50', username: USER, password: PASSWORD };
 
 async function setup(
   t,
-  { config = BASE, box = fakeFibaro({ devices: [...shutterDevices(), ...hc3Devices()] }) } = {},
+  {
+    config = BASE,
+    box = fakeFibaro({ devices: [...shutterDevices(), ...hc3Devices()] }),
+    created = () => [],
+  } = {},
 ) {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 1_760_000_000_000 });
-  const gladys = createFakeGladys({ config });
+  // The devices already created in Gladys (by an older version), by external ids.
+  const ids = (id) => createFakeGladys({ config }).externalIds('fibaro', String(id));
+  const gladys = createFakeGladys({ config, devices: created(ids) });
   const app = new FibaroApp({
     gladys,
     connect: box.connect,

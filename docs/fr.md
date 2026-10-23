@@ -84,19 +84,29 @@ volet, un interrupteur ni un variateur, donc jamais atteint par « fermer les
 volets », « tout éteindre » ou une scène qui ouvre les volets) quand :
 
 - son type contient barrier, gate, garage ou door ;
-- son rôle dans la box contient portail, porte de garage, porte ou barrière
-  (`Gate`, `GarageDoor`…), ou il est dans la catégorie « Portails » (`gates`)
-  d'un HC3 ou d'une Yubii Home ;
-- c'est un module de volet (ou un moteur radio) dont le nom contient portail,
-  portillon, gate, barrière, porte de garage, garage door, ou s'appelle
-  « Garage » (un « Volet garage » reste un volet).
+- l'identifiant de son rôle dans la box contient Gate, Garage, Door, Barrier
+  ou Portal (`Gate`, `GarageDoor`, `SlidingGate`…), ou il est dans la
+  catégorie `gates` d'un HC3 ou d'une Yubii Home ;
+- c'est un module de volet (ou un moteur radio), ou un simple relais sans rôle
+  ni catégorie de lampe, dont le nom contient garage, garaje, portail,
+  portillon, barrière, porte sectionnelle, porte basculante, cancello, portón,
+  portão, poort, garagedeur, le mot gate ou le mot Tor, ou un composé en -tor
+  (Rolltor, Hoftor, Einfahrtstor…). Dans le doute, Gladys choisit le portail
+  (ouverture gardée par l'option) : un « Volet garage » est donc un portail.
+  Exceptions : un nom avec fenêtre, velux, window ou Fenster reste un volet ;
+  un relais dont le nom contient prise, lumière, éclairage, lampe ou light
+  reste un interrupteur ; une serrure ou une vanne reste une serrure ou une
+  vanne.
 
-Si votre portail apparaît encore comme volet, donnez-lui le rôle Portail ou
-Porte de garage dans la box, ou un nom qui contient « Portail ». Un moteur de
-portail qui ne remonte ni position ni état (moteur radio sans retour) s'ouvre,
-une fois l'option cochée, si la box dit qu'il répond, comme un portail sur
-relais. Un capteur de portail, une serrure ou une sonnette ne sont jamais des
-portails.
+Si votre portail apparaît encore comme volet, donnez-lui le rôle Portail
+(`Gate`) ou Porte de garage (`GarageDoor`) dans la box, ou un nom qui contient
+« Portail ». Si un **volet de fenêtre** devient un portail parce que son nom
+contient « garage », renommez-le dans la box (par exemple « Volet fenêtre
+garage »). Un moteur de portail qui ne peut pas avoir de position et ne
+remonte ni valeur ni état (moteur radio sans retour) s'ouvre, une fois
+l'option cochée, si la box dit qu'il répond, comme un portail sur relais ; un
+portail qui a une valeur ou un état inconnu n'est jamais ouvert. Un capteur de
+portail, une serrure ou une sonnette ne sont jamais des portails.
 
 **Après la mise à jour depuis 0.1.1.** Les appareils déjà ajoutés gardent
 leurs fonctions, mais une commande d'ouverture, de déverrouillage ou de vanne
@@ -117,17 +127,23 @@ changent pas, mais certains changent de catégorie ; ouvrez **Découverte** et
 cliquez sur **Mettre à jour** sur ces appareils :
 
 - un **portail** ajouté comme volet (« État du volet », « Position ») devient
-  un portail : son état et les boutons Ouvrir, Fermer, Stop. Ses anciennes
-  fonctions volet ne pilotent plus rien (la commande est refusée, rien n'est
-  envoyé) et « Mettre à jour » les supprime avec leur historique ; refaites
-  les scènes qui les utilisaient avec les nouveaux boutons ;
+  un portail : son état et les boutons Ouvrir, Fermer, Stop. Jusqu'à la mise
+  à jour, ses anciennes fonctions volet peuvent seulement le **fermer ou
+  l'arrêter** (Position 0 ferme) ; toute ouverture est refusée sans rien
+  envoyer, avec un message qui renvoie à Découverte → Mettre à jour.
+  « Mettre à jour » supprime ces fonctions volet avec leur historique ;
+  refaites les scènes qui les utilisaient avec les nouveaux boutons ;
 - un **relais de lampe** ajouté comme interrupteur devient une lumière : la
-  fonction Marche/arrêt change de catégorie, son historique part avec
-  « Mettre à jour » ;
+  fonction Marche/arrêt change de catégorie à la mise à jour et garde son
+  historique (même identifiant) ;
+- un **relais nommé comme un portail** (« Portail ») devient un portail sur
+  relais : son interrupteur disparaît à la mise à jour, avec son historique ;
 - une **lumière cachée** de la box dont seuls les boutons S1/S2 étaient
   proposés apparaît comme un nouvel appareil (à ajouter) ; l'appareil
   « boutons » déjà ajouté ne change pas (il peut s'appeler « <nom> S1/S2 »
-  dans Découverte).
+  dans Découverte). Une sortie que vous avez masquée vous-même dans la box,
+  sur un module dont les entrées S1/S2 sont proposées, apparaît aussi dans
+  Découverte : rien n'est créé tant que vous ne l'ajoutez pas, ignorez-la.
 
 Un appareil que la box signale comme **mort** (il ne répond plus : pile,
 portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à

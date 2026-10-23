@@ -81,18 +81,27 @@ switch nor a dimmer, so never reached by "close the shutters", "turn
 everything off" or a scene opening the shutters) when:
 
 - its type contains barrier, gate, garage or door;
-- its role in the box contains gate, garage door, door or barrier (`Gate`,
-  `GarageDoor`…), or it is in the "Gates" category (`gates`) of an HC3 or a
-  Yubii Home;
-- it is a shutter module (or a radio motor) whose name contains portail,
-  portillon, gate, barrière, porte de garage, garage door, Garagentor, Tor, or
-  is "Garage" ("Volet garage" stays a shutter).
+- the id of its role in the box contains Gate, Garage, Door, Barrier or
+  Portal (`Gate`, `GarageDoor`, `SlidingGate`…), or it is in the `gates`
+  category of an HC3 or a Yubii Home;
+- it is a shutter module (or a radio motor), or a plain relay without a lamp
+  role or category, whose name contains garage, garaje, portail, portillon,
+  barrière, porte sectionnelle, porte basculante, cancello, portón, portão,
+  poort, garagedeur, the word gate or the word Tor, or a -tor compound
+  (Rolltor, Hoftor, Einfahrtstor…). When in doubt, Gladys picks the gate
+  (opening guarded by the option): a "Volet garage" is therefore a gate.
+  Exceptions: a name with fenêtre, velux, window or Fenster stays a shutter;
+  a relay whose name contains plug, light, lamp, prise, lumière, éclairage or
+  lampe stays a switch; a lock or a valve stays a lock or a valve.
 
-If your gate still shows up as a shutter, give it the Gate or Garage door role
-in the box, or a name with "Gate" in it. A gate motor that reports neither a
-position nor a state (a one-way radio motor) opens, once the option is on,
-when the box says it answers, like a gate on a relay. A gate sensor, a lock or
-a door bell is never a gate.
+If your gate still shows up as a shutter, give it the Gate (`Gate`) or Garage
+door (`GarageDoor`) role in the box, or a name with "Gate" in it. If a
+**window shutter** becomes a gate because its name contains "garage", rename
+it in the box (for instance "Garage window shutter"). A gate motor that can
+have no position and reports neither a value nor a state (a one-way radio
+motor) opens, once the option is on, when the box says it answers, like a
+gate on a relay; a gate with an unknown value or state is never opened. A
+gate sensor, a lock or a door bell is never a gate.
 
 **After updating from 0.1.1.** The devices already added keep their features,
 but an opening, unlocking or valve command is refused while its option is off:
@@ -109,15 +118,20 @@ used that switch must move to those buttons.
 change category; open **Discovery** and press **Update** on them:
 
 - a **gate** added as a shutter ("Shutter state", "Position") becomes a gate:
-  its state and Open, Close, Stop buttons. Its old shutter features no longer
-  drive anything (the command is refused, nothing is sent) and "Update"
-  deletes them with their history; redo the scenes that used them with the
-  new buttons;
+  its state and Open, Close, Stop buttons. Until the update, its old shutter
+  features can only **close or stop** it (Position 0 closes); any opening is
+  refused, nothing sent, with a message pointing to Discovery → Update.
+  "Update" deletes them with their history; redo the scenes that used them
+  with the new buttons;
 - a **lamp relay** added as a switch becomes a light: its On/off feature
-  changes category, and its history goes with "Update";
+  changes category on update and keeps its history (same id);
+- a **relay named like a gate** ("Portail") becomes a gate on a relay: its
+  switch goes away on update, with its history;
 - a **hidden light** of the box whose S1/S2 keys only were offered shows up
   as a new device (to add); the "buttons" device already added does not
-  change (Discovery may call it "<name> S1/S2").
+  change (Discovery may call it "<name> S1/S2"). An output you hid yourself in
+  the box, on a module whose S1/S2 inputs are offered, shows up in Discovery
+  too: nothing is created until you add it, ignore it.
 
 A device the box reports as **dead** (it no longer answers: battery, range,
 power) keeps a badge with an orange dot in Gladys until it answers again.
