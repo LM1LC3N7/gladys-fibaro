@@ -6,8 +6,8 @@
     "en": "Your Fibaro Home Center 2, HC3 or Yubii Home in Gladys: lights, shutters, sensors, remotes…",
     "fr": "Votre Fibaro Home Center 2, HC3 ou Yubii Home dans Gladys : lumières, volets, capteurs…"
   },
-  "version": "0.1.2",
-  "docker_image": "ghcr.io/lm1lc3n7/gladys-fibaro:0.1.2",
+  "version": "0.1.3",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-fibaro:0.1.3",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-fibaro/main/cover.png",
   "categories": ["protocols", "lighting", "climate"],
