@@ -84,15 +84,21 @@ everything off" or a scene opening the shutters) when:
 - the id of its role in the box contains Gate, Garage, Door, Barrier or
   Portal (`Gate`, `GarageDoor`, `SlidingGate`…), or it is in the `gates`
   category of an HC3 or a Yubii Home;
-- it is a shutter module (or a radio motor), or a plain relay without a lamp
-  role or category, whose name contains garage, garaje, portail, portillon,
-  barrière, porte sectionnelle, porte basculante, cancello, portón, portão,
-  poort, garagedeur, the word gate or the word Tor, or a -tor compound
-  (Rolltor, Hoftor, Einfahrtstor…). When in doubt, Gladys picks the gate
-  (opening guarded by the option): a "Volet garage" is therefore a gate.
-  Exceptions: a name with fenêtre, velux, window or Fenster stays a shutter;
-  a relay whose name contains plug, light, lamp, prise, lumière, éclairage or
-  lampe stays a switch; a lock or a valve stays a lock or a valve.
+- it is a shutter module (or a radio motor) whose name contains garage,
+  garaje, portail, portillon, barrière, porte sectionnelle, porte basculante,
+  cancello, portón, portão, poort, garagedeur, the word gate or the word Tor,
+  or a -tor compound (Rolltor, Hoftor, Einfahrtstor…). When in doubt, Gladys
+  picks the gate (opening guarded by the option): a "Volet garage" is
+  therefore a gate. Exception: a name with fenêtre, velux, window or Fenster
+  stays a shutter;
+- it is a plain relay, without a lamp role or category, whose name **starts**
+  with the gate ("Portail", "Gate", "Garage", "Porte de garage", "Hoftor"…)
+  and has no appliance word in it (heating, radiator, freezer, fridge, pump,
+  ventilation, intercom, bell, water heater, washer, dryer, watering, plug,
+  light, lamp, in French or English): "Chauffage garage" or "Pompe portail"
+  stay switches.
+
+A lock or a valve stays a lock or a valve, whatever its name.
 
 If your gate still shows up as a shutter, give it the Gate (`Gate`) or Garage
 door (`GarageDoor`) role in the box, or a name with "Gate" in it. If a
@@ -125,8 +131,10 @@ change category; open **Discovery** and press **Update** on them:
   with the new buttons;
 - a **lamp relay** added as a switch becomes a light: its On/off feature
   changes category on update and keeps its history (same id);
-- a **relay named like a gate** ("Portail") becomes a gate on a relay: its
-  switch goes away on update, with its history;
+- a **relay named like a gate** ("Portail") becomes a gate on a relay. Until
+  the update, its old On/off feature can only **turn it off**; turning it on
+  (the opening pulse) is refused with a message pointing to Update. The
+  update removes that switch, with its history;
 - a **hidden light** of the box whose S1/S2 keys only were offered shows up
   as a new device (to add); the "buttons" device already added does not
   change (Discovery may call it "<name> S1/S2"). An output you hid yourself in

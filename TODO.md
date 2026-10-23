@@ -216,6 +216,17 @@ false` (a missing or unreadable `dead` is refused). A gate with a null
     - I3: a plain relay (turnOn only) with a gate name, no lamp role /
       category and no plug / lamp word (prise, plug, lumi, éclair, lampe,
       lamp, light, spot) is a gate on a relay (contact + guarded Open).
+    - Review round 2 (B3, H6): I3 was too broad ("Chauffage garage",
+      "Congélateur garage", "Pompe portail" became gates on a relay, no way to
+      turn them off). For a relay only: the name must start with the gate
+      (`RELAY_GATE_NAME`, anchored) and carry no appliance word
+      (`NOT_A_GATE_RELAY_NAME`: chauff, radiat, congél, frigo, pompe, ventil,
+      interphone, sonnette, ballon, lave, sèche, arrosage, prise, lumi,
+      éclair, lampe, light, heat, pump, intercom, bell, wash, dry, water,
+      boiler, fan…). Shutter modules keep the broad rule. A relay gate whose
+      `binary` was created before keeps a writer (not offered): 0 = turnOff
+      (protective), 1 refused with the "Update" message (replaces the 0.1.2
+      review rule "no writer on a gate's old switch").
     - M1 refusal message, M2 docs (lamp relay keeps its history), M3 fr docs
       (Tor, role ids), M4 documented (an output hidden on purpose shows up in
       Discovery only), M5 `isLight` excludes sky / sensor / traffic role

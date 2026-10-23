@@ -17,12 +17,16 @@ the notes of the version's GitHub Release.
   gate also when its role in the box contains gate, garage, door, barrier or
   portal in any spelling (`gate`, `SlidingGate`, `GarageDoors`,
   `VideoGateOpen`…), when it is in the HC3 / Yubii "gates" category, or when a
-  shutter-like device or a plain relay (not a lamp, a plug, a lock nor a
-  valve) has a gate name: garage, garaje, portail, portillon, barrière, porte
-  sectionnelle / basculante, cancello, portón, portão, poort, garagedeur, the
-  words gate and Tor, -tor compounds (Rolltor, Hoftor…). When in doubt, a gate
-  ("Volet garage" included); a name with a window word (fenêtre, velux,
-  window, Fenster) stays a shutter. A gate offers its state (when it reports
+  shutter-like device (not a lock nor a valve) has a gate name: garage,
+  garaje, portail, portillon, barrière, porte sectionnelle / basculante,
+  cancello, portón, portão, poort, garagedeur, the words gate and Tor, -tor
+  compounds (Rolltor, Hoftor…). When in doubt, a gate ("Volet garage"
+  included); a name with a window word (fenêtre, velux, window, Fenster)
+  stays a shutter. A plain relay (not a lamp) is a gate by its name only
+  when the name starts with the gate ("Portail", "Garage", "Porte de
+  garage"…) and has no appliance word ("Chauffage garage", "Pompe portail",
+  "Prise garage" stay switches); until "Update", its old On/off only turns it
+  off, turning on is refused. A gate offers its state (when it reports
   one) and Open / Close / Stop buttons: opening only with `allow_gates` (off
   by default), close and stop always. A gate is never offered as a shutter, a
   switch or a dimmer any more, not even one created as a shutter by 0.1.1 or

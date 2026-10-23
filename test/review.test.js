@@ -77,7 +77,10 @@ test('B1: no switch feature of 0.1.1 is kept on a gate', () => {
     m.features.some((f) => f.key === 'binary'),
     false,
   );
-  assert.equal(m.writers.binary, undefined);
+  // 0.1.3 review 2: until "Update", the old On/off only turns the relay off
+  // (protective); turning on (the gate pulse) is refused.
+  assert.deepEqual(m.writers.binary(0), [{ name: 'turnOff', args: [], protective: true }]);
+  assert.throws(() => m.writers.binary(1), /became a gate in 0\.1\.3/);
 });
 
 const BASE = { host: '192.168.1.50', username: USER, password: PASSWORD };

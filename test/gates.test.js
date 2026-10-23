@@ -245,6 +245,34 @@ test('issue #4: a gate on a shutter module is a gate, by its role, category or n
   assert.equal(relayRole('Portail', { categories: ['lights'] }), 'switch', 'a lamp category');
   // Review I3: a relay named "Portail" is a gate on a relay, opening guarded.
   assert.equal(relayRole('Portail'), 'gate');
+  // Review 2, B3: for a relay, the gate must be the main word of the name and
+  // no appliance word may be in it; the shutter modules keep the broad rule.
+  for (const name of ['Garage', 'Portail entrée', 'Porte de garage', 'Hoftor', 'Gate', 'Tor']) {
+    assert.equal(relayRole(name), 'gate', name);
+  }
+  for (const name of [
+    'Chauffage garage',
+    'Radiateur garage',
+    'Chauffe-eau garage',
+    'Ventilation garage',
+    'Congélateur garage',
+    'Sèche-linge garage',
+    'Pompe portail',
+    'Interphone portail',
+    'Garage chauffage',
+    'Garage prise',
+    'Motor',
+    'Ventilator',
+  ]) {
+    assert.equal(relayRole(name), 'switch', name);
+  }
+  assert.equal(
+    roleOf(
+      buildInventory({ devices: [yubiiGate({ top: { name: 'Chauffage garage' } })] }).devices[0],
+    ),
+    'gate',
+    'a shutter module keeps the broad rule (when in doubt, a gate)',
+  );
   const relayGate = mapDevice(
     buildInventory({ devices: [{ ...plug, name: 'Portail' }] }).devices[0],
   );
@@ -388,6 +416,77 @@ test('review B1 / H4: a gate with a position whose value is null never opens', a
   assert.equal(open.success, false);
   assert.match(open.error, /state unknown, opening refused/);
   assert.deepEqual(sent(box), []);
+});
+
+const relay = (id, name) => ({
+  ...yubiiGate({
+    actions: ['turnOn', 'turnOff', 'toggle'],
+    properties: { value: true, deviceRole: 'Other', power: 1500, energy: 12 },
+  }),
+  id,
+  name,
+  type: 'com.fibaro.binarySwitch',
+  baseType: 'com.fibaro.actor',
+  interfaces: ['zwave', 'power', 'energy'],
+});
+const onOff = (ids, id) => ({
+  name: 'On/off',
+  external_id: ids(id).feature('binary'),
+  category: C.SWITCH,
+  type: 'binary',
+  min: 0,
+  max: 1,
+  read_only: false,
+  has_feedback: true,
+  keep_history: true,
+});
+
+test('review 2 / H6: "Chauffage garage" created as a switch stays a switch and turns off', async (t) => {
+  const box = fakeFibaro({ devices: [...hc3Devices(), relay(310, 'Chauffage garage')] });
+  const { gladys } = await setup(t, {
+    box,
+    created: (ids) => [
+      {
+        name: 'Chauffage garage (Entrée)',
+        external_id: ids(310).device,
+        features: [onOff(ids, 310)],
+      },
+    ],
+  });
+  const legacy = gladys.devices.find((d) => d.name === 'Chauffage garage (Entrée)');
+  const off = await gladys.fake.setValue(legacy, legacy.features[0], 0);
+  assert.equal(off.success, true, off.error);
+  assert.deepEqual(sent(box), ['310:turnOff']);
+  const published = gladys.fake.discoveredDevices.find((d) => d.external_id === legacy.external_id);
+  assert.deepEqual(
+    published.features.map((f) => `${f.external_id.split(':').at(-1)} ${f.category}`),
+    [`binary ${C.SWITCH}`, `power ${C.SWITCH}`, `energy ${C.SWITCH}`],
+    'nothing lost, same categories',
+  );
+});
+
+test('review 2: a relay that became a gate by its name turns off until "Update", never on', async (t) => {
+  const config = { ...BASE, allow_gates: true };
+  const box = fakeFibaro({ devices: [...hc3Devices(), relay(320, 'Portail')] });
+  const { gladys } = await setup(t, {
+    config,
+    box,
+    created: (ids) => [
+      { name: 'Portail (Entrée)', external_id: ids(320).device, features: [onOff(ids, 320)] },
+    ],
+  });
+  const legacy = gladys.devices.find((d) => d.name === 'Portail (Entrée)');
+  const [binary] = legacy.features;
+  assert.equal((await gladys.fake.setValue(legacy, binary, 0)).success, true);
+  const on = await gladys.fake.setValue(legacy, binary, 1);
+  assert.equal(on.success, false);
+  assert.match(on.error, /became a gate in 0\.1\.3.*Discovery, press\s+"Update"/);
+  assert.deepEqual(sent(box), ['320:turnOff'], 'even with allow_gates: no pulse');
+  const published = gladys.fake.discoveredDevices.find((d) => d.external_id === legacy.external_id);
+  assert.ok(
+    published.features.every((f) => f.category !== C.SWITCH),
+    'never offered as a switch',
+  );
 });
 
 // --- Through the app -------------------------------------------------------------

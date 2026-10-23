@@ -87,16 +87,23 @@ volets », « tout éteindre » ou une scène qui ouvre les volets) quand :
 - l'identifiant de son rôle dans la box contient Gate, Garage, Door, Barrier
   ou Portal (`Gate`, `GarageDoor`, `SlidingGate`…), ou il est dans la
   catégorie `gates` d'un HC3 ou d'une Yubii Home ;
-- c'est un module de volet (ou un moteur radio), ou un simple relais sans rôle
-  ni catégorie de lampe, dont le nom contient garage, garaje, portail,
-  portillon, barrière, porte sectionnelle, porte basculante, cancello, portón,
-  portão, poort, garagedeur, le mot gate ou le mot Tor, ou un composé en -tor
-  (Rolltor, Hoftor, Einfahrtstor…). Dans le doute, Gladys choisit le portail
-  (ouverture gardée par l'option) : un « Volet garage » est donc un portail.
-  Exceptions : un nom avec fenêtre, velux, window ou Fenster reste un volet ;
-  un relais dont le nom contient prise, lumière, éclairage, lampe ou light
-  reste un interrupteur ; une serrure ou une vanne reste une serrure ou une
-  vanne.
+- c'est un module de volet (ou un moteur radio) dont le nom contient garage,
+  garaje, portail, portillon, barrière, porte sectionnelle, porte basculante,
+  cancello, portón, portão, poort, garagedeur, le mot gate ou le mot Tor, ou
+  un composé en -tor (Rolltor, Hoftor, Einfahrtstor…). Dans le doute, Gladys
+  choisit le portail (ouverture gardée par l'option) : un « Volet garage » est
+  donc un portail. Exception : un nom avec fenêtre, velux, window ou Fenster
+  reste un volet ;
+- c'est un simple relais, sans rôle ni catégorie de lampe, dont le nom
+  **commence** par le portail (« Portail », « Portail entrée », « Garage »,
+  « Porte de garage », « Hoftor »…) et ne contient aucun mot d'appareil
+  (chauffage, radiateur, congélateur, frigo, pompe, ventilation, interphone,
+  sonnette, ballon, lave, sèche, arrosage, prise, lumière, éclairage, lampe,
+  light…) : « Chauffage garage » ou « Pompe portail » restent des
+  interrupteurs.
+
+Une serrure ou une vanne reste une serrure ou une vanne, quel que soit son
+nom.
 
 Si votre portail apparaît encore comme volet, donnez-lui le rôle Portail
 (`Gate`) ou Porte de garage (`GarageDoor`) dans la box, ou un nom qui contient
@@ -137,7 +144,10 @@ cliquez sur **Mettre à jour** sur ces appareils :
   fonction Marche/arrêt change de catégorie à la mise à jour et garde son
   historique (même identifiant) ;
 - un **relais nommé comme un portail** (« Portail ») devient un portail sur
-  relais : son interrupteur disparaît à la mise à jour, avec son historique ;
+  relais. Jusqu'à la mise à jour, son ancienne fonction Marche/arrêt peut
+  seulement l'**éteindre** ; l'allumer (l'impulsion d'ouverture) est refusé
+  avec un message qui renvoie à Mettre à jour. La mise à jour retire cet
+  interrupteur, avec son historique ;
 - une **lumière cachée** de la box dont seuls les boutons S1/S2 étaient
   proposés apparaît comme un nouvel appareil (à ajouter) ; l'appareil
   « boutons » déjà ajouté ne change pas (il peut s'appeler « <nom> S1/S2 »

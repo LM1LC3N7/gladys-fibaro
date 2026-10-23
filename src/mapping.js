@@ -219,8 +219,16 @@ const GATE_NAME = new RegExp(
 );
 /** An explicit window word keeps "Volet fenêtre garage" a shutter. */
 const WINDOW_NAME = /fen[eê]tre|velux|window|fenster/iu;
-/** A relay named after a gate stays a relay when its name says plug or lamp. */
-const NOT_A_GATE_RELAY_NAME = /prise|plug|lumi|[ée]clair|lampe|lamp|light|spot/iu;
+/**
+ * A plain relay is a gate by its name only when the gate is the main word of
+ * the name, at its start ("Portail", "Garage", "Porte de garage", "Hoftor"),
+ * never "Chauffage garage" nor "Pompe portail".
+ */
+const RELAY_GATE_NAME =
+  /^\s*(portails?|portillons?|gates?|barri[eè]res?|barriers?|porte\s+(de\s+|du\s+)?garage|garage\s*door|garagentor|garage|tor|(einfahrts|hof|roll|schiebe|garten|sektional|garagen|flügel|falt|kipp)tor)($|[^\p{L}])/iu;
+/** Words of an appliance: a relay with one of them in its name is never a gate. */
+const NOT_A_GATE_RELAY_NAME =
+  /chauff|radiat|congel|congél|frigo|pompe|pump|ventil|interphone|sonnette|ballon|lave|s[eè]che|arrosage|prise|plug|lumi|[ée]clair|lampe|lamp|light|spot|heat|freez|fridge|intercom|bell|wash|dry|water|boiler|fan/iu;
 
 /** The name of the device says gate (and no window word). */
 const gateName = (dev) => GATE_NAME.test(dev.name ?? '') && !WINDOW_NAME.test(dev.name ?? '');
@@ -239,8 +247,9 @@ const roleWordsOf = (dev) => new Set(typeWords(dev.properties.deviceRole));
  *   any case or spelling), or the HC3 / Yubii "gates" category,
  * - by its name (GATE_NAME, no window word): a shutter-like device (a shutter
  *   module set up for a gate, as on the Yubii Home of issue #4), or a plain
- *   relay without a lamp role, category or plug / lamp word; never a lock
- *   nor a valve by its name.
+ *   relay without a lamp role or category whose name starts with the gate
+ *   (RELAY_GATE_NAME) and has no appliance word; never a lock nor a valve
+ *   by its name.
  * Never a sensor, a lock nor a bell; never a switch, a dimmer nor a shutter:
  * opening it is off until the user allows it (allow_gates).
  */
@@ -265,8 +274,12 @@ export function isGate(dev) {
     return true;
   }
   // A relay named "Portail": a gate on a relay (its turnOn is the pulse),
-  // unless it is a lamp or a plug ("Prise garage", "Lumière portail").
-  return isRelay(dev) && !isLight(dev) && !NOT_A_GATE_RELAY_NAME.test(dev.name ?? '');
+  // only when the gate is the main word of its name and no appliance word is
+  // in it ("Chauffage garage", "Pompe portail", "Prise garage" stay switches).
+  const name = dev.name ?? '';
+  return (
+    isRelay(dev) && !isLight(dev) && RELAY_GATE_NAME.test(name) && !NOT_A_GATE_RELAY_NAME.test(name)
+  );
 }
 
 /** A lock: the secure / unsecure actions, or the word lock in its type. */
@@ -834,6 +847,21 @@ class DeviceMapper {
           return 'send';
         },
       });
+      // A relay created as a switch before it was a gate (by its name since
+      // 0.1.3): its old On/off is not offered, but until "Update" it still
+      // turns the relay off (protective); turning on is refused.
+      if (this.existing.has('binary')) {
+        this.writers.binary = (value) => {
+          if (strictNumber(value, 0, 1, name) === 0 && has(dev, 'turnOff')) {
+            return [protect(call('turnOff'))];
+          }
+          throw new Error(
+            `${name} became a gate in 0.1.3: this old On/off feature can only turn it off ` +
+              `(asked ${JSON.stringify(value)}, command not sent). Open Discovery, press ` +
+              '"Update", then use the Open button.',
+          );
+        };
+      }
       return;
     }
     // A one-way motor: no setValue (it can have no position) and no `value` /
