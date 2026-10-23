@@ -190,7 +190,9 @@ test('a Home Center 2: API v4, string values, no sections', async (t) => {
   const { gladys, app, tick } = await setup(t, { box });
   assert.equal(
     gladys.fake.connectionStatus.message.en,
-    'Connected to the Home Center 2 (firmware 4.630): 6 devices in Discovery.',
+    // 7: the hidden relay of the pyfibaro scene-support module is offered next
+    // to its S1/S2 keys (issue #4).
+    'Connected to the Home Center 2 (firmware 4.630): 7 devices in Discovery.',
   );
   const hifi = await created(gladys, 'Hifi (Wohnen)');
   await tick(TIMINGS.flushInterval);

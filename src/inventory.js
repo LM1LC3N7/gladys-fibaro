@@ -8,7 +8,9 @@
 // Left out: disabled devices, hidden ones, and plugins / Quick Apps unless the
 // user asks for them. One exception to "hidden": the HC3 hides the
 // central-scene endpoint of a remote or a push button itself (named
-// "175.0.1"): it is kept, named after its physical device.
+// "175.0.1"): it is kept, named after its physical device, and so are the
+// hidden outputs (relay, dimmer) of that same device, so a light is never
+// offered as its S1/S2 buttons only (issue #4).
 // -----------------------------------------------------------------------------
 
 import { flag, toList } from './values.js';
@@ -88,6 +90,13 @@ export function buildInventory({ devices, rooms = [], sections = [], includePlug
   // Z-Wave node and its endpoints): counted in `hidden` too, but never "left
   // out" for the user, their endpoints are the devices.
   const skipped = { disabled: 0, hidden: 0, plugins: 0, nodes: 0 };
+  const usable = (d) => d.enabled && (!d.isPlugin || includePlugins);
+  // The modules whose hidden central-scene endpoint (S1/S2 inputs) is offered.
+  const sceneModules = new Set(
+    all
+      .filter((d) => usable(d) && !d.visible && d.parentId && centralScene(d.properties).length > 0)
+      .map((d) => d.parentId),
+  );
   for (const device of all) {
     if (!device.enabled) {
       skipped.disabled += 1;
@@ -100,19 +109,64 @@ export function buildInventory({ devices, rooms = [], sections = [], includePlug
     let name = device.name;
     if (!device.visible) {
       const parent = byId.get(device.parentId);
-      if (centralScene(device.properties).length === 0) {
+      const scene = centralScene(device.properties).length > 0;
+      if (!scene && !isHiddenOutput(device, sceneModules, parents)) {
         skipped.hidden += 1;
         if (parents.has(device.id)) {
           skipped.nodes += 1;
         }
         continue;
       }
-      if (parent && parent.name && !/^\d+(\.\d+)*$/.test(parent.name)) {
+      if ((scene || isTechnicalName(name)) && parent && !isTechnicalName(parent.name)) {
         name = parent.name;
       }
     }
     const room = roomsById.get(device.roomId);
     kept.push({ ...device, name, roomName: room?.name, sectionName: room?.section });
   }
+  nameSceneEndpoints(kept);
   return { devices: kept, skipped, total: all.length };
+}
+
+/** A name the box gave itself: "175", "175.0.1". */
+const isTechnicalName = (name) => !name || /^\d+(\.\d+)*$/.test(name);
+
+/** Actions of a device that drives something (a relay, a dimmer, a motor). */
+const OUTPUT_ACTIONS = ['turnOn', 'setValue', 'open', 'close'];
+
+/**
+ * A hidden output of a module whose central-scene endpoint is offered (issue
+ * #4: an outdoor light whose relay the box hides, only its S1/S2 keys were
+ * offered, as a "button"): offered too, so the module is never reduced to
+ * its buttons. Never a technical node (the parent of other devices).
+ */
+function isHiddenOutput(device, sceneModules, parents) {
+  return (
+    Boolean(device.parentId) &&
+    sceneModules.has(device.parentId) &&
+    !parents.has(device.id) &&
+    OUTPUT_ACTIONS.some((a) => device.actions.includes(a))
+  );
+}
+
+/**
+ * A hidden central-scene endpoint takes the name of its module; when an
+ * output of the same module (its parent or a sibling) has that very name,
+ * the endpoint is called "<name> S1/S2" so the two Discovery cards differ.
+ */
+function nameSceneEndpoints(kept) {
+  for (const device of kept) {
+    if (device.visible || centralScene(device.properties).length === 0 || !device.parentId) {
+      continue;
+    }
+    const clash = kept.some(
+      (other) =>
+        other !== device &&
+        other.name === device.name &&
+        (other.id === device.parentId || other.parentId === device.parentId),
+    );
+    if (clash) {
+      device.name = `${device.name} S1/S2`;
+    }
+  }
 }

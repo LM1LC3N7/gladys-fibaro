@@ -2,17 +2,13 @@
 // Gates, garage doors, doors and locks: opening and unlocking are off by
 // default (allow_gates, allow_unlock); closing, stopping and locking always
 // work. A guarded command is decided on the state read again from the box,
-// its option is checked again right before it is sent, and a device created
-// before keeps its features.
+// its option is checked again right before it is sent, and a gate is never
+// offered as a shutter, not even a gate created as one before 0.1.3.
 // -----------------------------------------------------------------------------
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  DEVICE_FEATURE_CATEGORIES as C,
-  DEVICE_FEATURE_TYPES as T,
-  createLogger,
-} from '@gladysassistant/integration-sdk';
+import { DEVICE_FEATURE_CATEGORIES as C, createLogger } from '@gladysassistant/integration-sdk';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { FibaroApp } from '../src/app.js';
 import { TIMINGS } from '../src/constants.js';
@@ -21,7 +17,6 @@ import { FibaroError } from '../src/fibaro.js';
 import { registerHandlers } from '../src/handlers.js';
 import { buildInventory } from '../src/inventory.js';
 import {
-  COVER_STATE,
   GUARDS,
   OPENING_SENSOR_STATE,
   gateStateOf,
@@ -104,44 +99,136 @@ test('gate, garage and door types and roles; door sensors and locks are not gate
   assert.equal(gateStateOf({ value: 'closing' }), 'moving');
 });
 
-test('a gate created as a shutter by 0.1.1 keeps its features, opening guarded', () => {
-  const inventory = buildInventory({ devices: shutterDevices(), rooms: ROOMS });
-  const ids = (id) => ({ device: `ext:t:fibaro:${id}`, feature: (k) => `ext:t:fibaro:${id}:${k}` });
-  const fresh = buildModel(ids, inventory);
-  const gate = (model) => model.devices.find((d) => d.external_id === 'ext:t:fibaro:250');
-  assert.deepEqual(
-    gate(fresh).features.map((f) => f.external_id.split(':').at(-1)),
-    ['gate', 'open', 'close', 'stop'],
-    'a new gate: no shutter feature',
-  );
-  const legacy = buildModel(ids, inventory, undefined, ['ext:t:fibaro:250:state']);
-  const state = gate(legacy).features.find((f) => f.external_id.endsWith(':state'));
-  assert.deepEqual(
-    [state.category, state.type, state.min, state.max, state.read_only],
-    [C.SHUTTER, T.SHUTTER.STATE, -1, 1, false],
-    'same structure as created: no "Update" needed, nothing lost',
-  );
-  const write = legacy.writers.get('ext:t:fibaro:250:state').write;
-  const [open] = write(COVER_STATE.OPEN);
-  assert.deepEqual([open.name, open.guard], ['open', GUARDS.GATES]);
-  assert.deepEqual(write(COVER_STATE.CLOSE), [{ name: 'close', args: [], protective: true }]);
-  assert.deepEqual(write(COVER_STATE.STOP), [{ name: 'stop', args: [], protective: true }]);
+const ids = (id) => ({ device: `ext:t:fibaro:${id}`, feature: (k) => `ext:t:fibaro:${id}:${k}` });
+const keysOf = (model, id) =>
+  model.devices
+    .find((d) => d.external_id === `ext:t:fibaro:${id}`)
+    .features.map((f) => f.external_id.split(':').at(-1));
 
-  // A shutter module set to Gate whose position existed: kept, opening guarded.
-  const fgr = shutterDevices().map((d) =>
-    d.id === 201 ? { ...d, properties: { ...d.properties, deviceRole: 'Gate' } } : d,
-  );
-  const old = buildModel(ids, buildInventory({ devices: fgr, rooms: ROOMS }), undefined, [
-    'ext:t:fibaro:201:position',
-    'ext:t:fibaro:201:state',
+test('a gate created as a shutter before 0.1.3: never driven as a shutter any more (issue #4)', () => {
+  const inventory = buildInventory({ devices: shutterDevices(), rooms: ROOMS });
+  const fresh = buildModel(ids, inventory);
+  assert.deepEqual(keysOf(fresh, 250), ['gate', 'open', 'close', 'stop'], 'no shutter feature');
+  const legacy = buildModel(ids, inventory, undefined, [
+    'ext:t:fibaro:250:state',
+    'ext:t:fibaro:250:position',
   ]);
-  const position = old.writers.get('ext:t:fibaro:201:position').write;
-  assert.equal(position(50)[0].guard, GUARDS.GATES);
   assert.deepEqual(
-    position(0),
-    [{ name: 'setValue', args: [0], protective: true }],
-    'closing: never guarded',
+    keysOf(legacy, 250),
+    ['gate', 'open', 'close', 'stop'],
+    'the old shutter features are not offered: "Update" in Discovery removes them',
   );
+  assert.equal(legacy.writers.get('ext:t:fibaro:250:state'), undefined, 'refused, nothing sent');
+  assert.equal(legacy.writers.get('ext:t:fibaro:250:position'), undefined);
+  // The external ids of the device and of its gate features do not change.
+  assert.ok(legacy.writers.get('ext:t:fibaro:250:open'));
+});
+
+/**
+ * Issue #4 (Yubii Home, 0.1.2): "Portail" offered as "État du volet". A gate
+ * motor on a shutter module whose role the box leaves to a blind role, or a
+ * radio gate motor without position: written after the HC3 API documentation
+ * (types, roles, categories), not dumped from the user's box.
+ */
+const yubiiGate = (o = {}) => ({
+  id: 300,
+  name: 'Portail',
+  roomID: 223,
+  type: 'com.fibaro.remoteBaseShutter',
+  baseType: 'com.fibaro.baseShutter',
+  enabled: true,
+  visible: true,
+  isPlugin: false,
+  parentId: 0,
+  interfaces: [],
+  properties: { dead: false, deviceRole: 'BlindsWithoutPositioning', ...o.properties },
+  actions: Object.fromEntries((o.actions ?? ['open', 'close', 'stop']).map((a) => [a, 0])),
+  ...o.top,
+});
+
+test('issue #4: a gate on a shutter module is a gate, by its role, category or name', () => {
+  const role = (o) => roleOf(buildInventory({ devices: [yubiiGate(o)] }).devices[0]);
+  assert.equal(role(), 'gate', 'named "Portail", blinds role');
+  for (const deviceRole of ['gate', 'SlidingGate', 'GarageDoors', 'Barrier', 'VideoGateOpen']) {
+    assert.equal(role({ top: { name: 'Moteur' }, properties: { deviceRole } }), 'gate', deviceRole);
+  }
+  assert.equal(
+    role({ top: { name: 'Moteur' }, properties: { categories: ['gates'] } }),
+    'gate',
+    'HC3 category',
+  );
+  assert.equal(
+    role({ top: { name: 'Moteur' }, properties: { categories: '["gates"]' } }),
+    'gate',
+    'HC2 serialized list',
+  );
+  for (const name of ['Portail', 'Portail coulissant', 'Portillon', 'Porte de garage', 'Garage']) {
+    assert.equal(role({ top: { name } }), 'gate', name);
+  }
+  for (const name of ['Volet garage', 'Volet salon', 'Store portique']) {
+    assert.equal(role({ top: { name } }), 'cover', `${name} stays a shutter`);
+  }
+  // By name only for a shutter-like device: a plug or a light is never a gate.
+  const plug = {
+    ...yubiiGate({ actions: ['turnOn', 'turnOff'], properties: { value: false } }),
+    name: 'Prise portail',
+    type: 'com.fibaro.binarySwitch',
+    baseType: 'com.fibaro.actor',
+  };
+  plug.properties.deviceRole = 'Other';
+  assert.equal(roleOf(buildInventory({ devices: [plug] }).devices[0]), 'switch');
+  // A gate sensor and a door bell are not gates.
+  assert.equal(
+    role({ top: { name: 'Capteur portail' }, properties: { deviceRole: 'GateSensor' } }),
+    'cover',
+    'sensor role: not a gate (here only the actions of the fixture make it a shutter)',
+  );
+  assert.notEqual(
+    roleOf({
+      ...buildInventory({ devices: [yubiiGate()] }).devices[0],
+      name: 'Sonnette',
+      properties: { deviceRole: 'VideoGateBell' },
+    }),
+    'gate',
+  );
+});
+
+test('issue #4: the gate is never a shutter nor a switch; opening needs allow_gates', () => {
+  const [gate] = buildInventory({ devices: [yubiiGate()], rooms: ROOMS }).devices;
+  const m = mapDevice(gate);
+  assert.deepEqual(specsOf(m), ['open button/push', 'close button/push', 'stop button/push']);
+  assert.ok(m.features.every((f) => ![C.SHUTTER, C.SWITCH, C.LIGHT].includes(f.category)));
+  assert.equal(m.writers.state, undefined, 'a "close the shutters" never reaches it');
+  const [open] = m.writers.open(1);
+  assert.deepEqual([open.name, open.guard], ['open', GUARDS.GATES]);
+  // A one-way motor: no state at all, opening decided on "alive" only.
+  assert.equal(open.decide({ dead: false }), 'send');
+  assert.throws(() => open.decide({ dead: true }), /dead/);
+  assert.deepEqual(m.writers.close(1), [{ name: 'close', args: [], protective: true }]);
+  assert.deepEqual(m.writers.stop(1), [{ name: 'stop', args: [], protective: true }]);
+
+  // With a state: decided on it, unknown refused.
+  const [withState] = buildInventory({
+    devices: [yubiiGate({ properties: { state: 'Closed' } })],
+  }).devices;
+  const [open2] = mapDevice(withState).writers.open(1);
+  assert.equal(open2.decide({ state: 'Closed' }), 'send');
+  assert.equal(open2.decide({ state: 'Open' }), 'skip');
+  assert.throws(() => open2.decide({ state: 'Unknown' }), /state unknown, opening refused/);
+  assert.deepEqual(specsOf(mapDevice(withState))[0], 'gate opening-sensor/binary');
+});
+
+test('issue #4: through the app, the gate offered as a gate keeps its external id', async (t) => {
+  const box = fakeFibaro({
+    devices: [...hc3Devices(), yubiiGate({ properties: { state: 'Closed' } })],
+  });
+  const { gladys, press } = await setup(t, { box });
+  const device = gladys.fake.discoveredDevices.find((d) => d.name === GATE);
+  assert.ok(device.external_id.endsWith('fibaro:300'));
+  assert.ok(device.features.every((f) => f.category !== C.SHUTTER));
+  assert.equal((await press(GATE, 'close')).success, true);
+  assert.match((await press(GATE, 'open')).error, /allow_gates/);
+  assert.deepEqual(sent(box), ['300:close']);
 });
 
 // --- Through the app -------------------------------------------------------------

@@ -37,13 +37,14 @@ scène lance une **scène Fibaro**. Non officiel, sans lien avec Fibaro ou Nice.
 | Dans la box                                                           | Dans Gladys                                                                      |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Relais, prise murale (interrupteur)                                   | un interrupteur, avec sa puissance et son énergie quand il les mesure            |
+| Relais d'une lampe (rôle Lumière, Lampe de jardin, Applique…)         | une lumière marche/arrêt, avec sa puissance et son énergie                       |
 | Variateur (Dimmer 2, Walli Dimmer…)                                   | une lumière (marche/arrêt, luminosité) s'il pilote une lampe, sinon un variateur |
 | Module RGBW                                                           | une lumière : marche/arrêt, luminosité, couleur                                  |
 | Volet roulant (Roller Shutter 2/3, Walli Roller Shutter)              | un volet : position, ouvrir, fermer, stop                                        |
 | Volet sans position                                                   | ouvrir, fermer, stop                                                             |
 | Tête thermostatique, thermostat, climatisation                        | un thermostat : consigne, mode (arrêt, chauffage, froid, auto), état de chauffe  |
 | Serrure                                                               | une serrure : verrouiller toujours ; déverrouiller seulement avec l'option       |
-| Portail, porte de garage, porte motorisée (barrier, rôle Portail)     | son état, et des boutons Ouvrir, Fermer, Stop ; Ouvrir seulement avec l'option   |
+| Portail, porte de garage, porte motorisée (voir ci-dessous)           | son état, et des boutons Ouvrir, Fermer, Stop ; Ouvrir seulement avec l'option   |
 | Portail sur un relais (rôle Portail ou Porte de garage)               | le contact du relais, et un bouton Ouvrir (impulsion) seulement avec l'option    |
 | Vanne d'eau ou de gaz (type valve, rôle Vanne)                        | son état, et des boutons Ouvrir et Fermer, tous deux seulement avec l'option     |
 | Capteur d'ouverture, de mouvement, d'inondation, de fumée, de CO      | le capteur Gladys correspondant                                                  |
@@ -75,10 +76,27 @@ savoir s'il est ouvert, elle vérifie seulement qu'il répond. Sur un portail à
 commande pas à pas, cette impulsion peut aussi l'arrêter ou le fermer ; le
 relais doit être réglé en mode impulsion dans la box. Pour une vanne sur un
 relais, « relais activé » est lu comme « vanne ouverte » : si votre vanne
-fonctionne à l'inverse, Ouvrir et Fermer sont inversés. Un portail piloté
-par un module de volet reste un volet pour Gladys : réglez son rôle sur Portail
-ou Porte de garage dans la box. Jamais testé sur un vrai portail, une vraie
-serrure ni une vraie vanne.
+fonctionne à l'inverse, Ouvrir et Fermer sont inversés. Jamais testé sur un
+vrai portail, une vraie serrure ni une vraie vanne.
+
+**Comment Gladys reconnaît un portail.** Un appareil est un portail (jamais un
+volet, un interrupteur ni un variateur, donc jamais atteint par « fermer les
+volets », « tout éteindre » ou une scène qui ouvre les volets) quand :
+
+- son type contient barrier, gate, garage ou door ;
+- son rôle dans la box contient portail, porte de garage, porte ou barrière
+  (`Gate`, `GarageDoor`…), ou il est dans la catégorie « Portails » (`gates`)
+  d'un HC3 ou d'une Yubii Home ;
+- c'est un module de volet (ou un moteur radio) dont le nom contient portail,
+  portillon, gate, barrière, porte de garage, garage door, ou s'appelle
+  « Garage » (un « Volet garage » reste un volet).
+
+Si votre portail apparaît encore comme volet, donnez-lui le rôle Portail ou
+Porte de garage dans la box, ou un nom qui contient « Portail ». Un moteur de
+portail qui ne remonte ni position ni état (moteur radio sans retour) s'ouvre,
+une fois l'option cochée, si la box dit qu'il répond, comme un portail sur
+relais. Un capteur de portail, une serrure ou une sonnette ne sont jamais des
+portails.
 
 **Après la mise à jour depuis 0.1.1.** Les appareils déjà ajoutés gardent
 leurs fonctions, mais une commande d'ouverture, de déverrouillage ou de vanne
@@ -87,13 +105,29 @@ qui ouvraient un portail, déverrouillaient une serrure ou pilotaient une vanne
 échouent alors avec ce message. Un volet ajouté en 0.1.1 comme interrupteur ou
 variateur apparaît dans Découverte avec « Mettre à jour » : ce bouton remplace
 ses fonctions Marche/arrêt et Niveau par Position et Ouvrir/fermer, et leur
-historique est supprimé. Un portail ajouté en 0.1.1 comme volet garde ses
-fonctions volet, avec la même règle ; un portail ajouté comme interrupteur
-perd cette fonction (et son historique) à la mise à jour. Une vanne ajoutée
+historique est supprimé. Un portail ajouté comme interrupteur perd cette
+fonction (et son historique) à la mise à jour. Une vanne ajoutée
 en 0.1.1 comme interrupteur garde sa fonction Marche/arrêt et son historique,
 mais en lecture seule : seuls les boutons Ouvrir et Fermer pilotent la vanne,
 et les scènes 0.1.1 qui utilisaient cet interrupteur doivent passer à ces
 boutons.
+
+**Après la mise à jour vers 0.1.3.** Les identifiants des appareils ne
+changent pas, mais certains changent de catégorie ; ouvrez **Découverte** et
+cliquez sur **Mettre à jour** sur ces appareils :
+
+- un **portail** ajouté comme volet (« État du volet », « Position ») devient
+  un portail : son état et les boutons Ouvrir, Fermer, Stop. Ses anciennes
+  fonctions volet ne pilotent plus rien (la commande est refusée, rien n'est
+  envoyé) et « Mettre à jour » les supprime avec leur historique ; refaites
+  les scènes qui les utilisaient avec les nouveaux boutons ;
+- un **relais de lampe** ajouté comme interrupteur devient une lumière : la
+  fonction Marche/arrêt change de catégorie, son historique part avec
+  « Mettre à jour » ;
+- une **lumière cachée** de la box dont seuls les boutons S1/S2 étaient
+  proposés apparaît comme un nouvel appareil (à ajouter) ; l'appareil
+  « boutons » déjà ajouté ne change pas (il peut s'appeler « <nom> S1/S2 »
+  dans Découverte).
 
 Un appareil que la box signale comme **mort** (il ne répond plus : pile,
 portée, alimentation) garde un badge avec un point orange dans Gladys jusqu'à
@@ -158,3 +192,42 @@ protégées par un code PIN ne peuvent pas être lancées ainsi.
   stop), jamais un interrupteur. Les boutons S1/S2 d'un module volet avec
   activation de scène apparaissent en plus comme fonctions « bouton » en
   lecture seule : ils servent de déclencheurs de scène, pas à piloter le volet.
+- **Une lumière n'apparaît qu'en « Clic bouton »** : sur un module dont la box
+  cache le relais, seules les entrées S1/S2 étaient proposées. Depuis 0.1.3 le
+  relais est proposé à part, comme lumière (ou interrupteur si son rôle dans
+  la box n'est pas une lampe) ; l'appareil boutons reste un déclencheur.
+
+## Envoyer la liste de vos appareils (pour un ticket)
+
+Si un appareil est mal reconnu, la liste de la box permet de corriger
+l'intégration :
+
+1. Dans un navigateur connecté à la box (ouvrez d'abord son interface web),
+   ouvrez `http://<ip-de-la-box>/api/devices` : c'est la **liste complète**,
+   sans numéro à la fin.
+2. Cherchez (Ctrl+F) le nom de l'appareil, ou mieux son numéro : dans Gladys,
+   **Paramètres techniques** de l'appareil → `FIBARO_ID`, puis cherchez
+   `"id": <ce numéro>` (ou `"id":<ce numéro>`).
+3. Copiez le bloc de l'appareil (de `{"id": …` jusqu'à l'accolade fermante
+   correspondante), puis celui de son parent : le numéro donné par son
+   `parentId` ; et les blocs qui ont le même `parentId` (les autres canaux du
+   module).
+4. Vérifiez qu'aucune donnée personnelle n'y figure (noms, adresses, e-mails,
+   coordonnées GPS : remplacez-les par `xxx`) ; il n'y a pas de mot de passe
+   dans cette liste. Collez-les dans le ticket GitHub (ou dans un gist).
+
+**Pourquoi `/api/devices/<numéro>` répond « introuvable ».** Causes possibles
+(non vérifiées sur une Yubii Home) :
+
+- le numéro saisi n'est pas l'identifiant Fibaro : il faut le nombre seul de
+  `FIBARO_ID`, pas l'identifiant externe de Gladys (`fibaro:123`, ou avec le
+  préfixe `ext:…`), ni le numéro d'un appareil de Gladys ;
+- le numéro vient de l'application Yubii ou de l'adresse d'une page de
+  l'interface web : il peut désigner un autre appareil (le module visible)
+  que celui que Gladys propose. Ainsi, l'appareil « boutons S1/S2 » est dans
+  la box un appareil caché nommé comme `175.0.1`, que Gladys appelle du nom
+  de son module : le chercher par son nom dans la liste ne le trouve pas,
+  cherchez son numéro ;
+- l'appareil a été réinclus dans la box depuis (il a un nouveau numéro).
+
+La liste complète `/api/devices` contourne ces trois cas.

@@ -387,16 +387,17 @@ test('M3 / S9: nothing skipped unless clearly open (open, true, 95 % and more)',
     properties: { value: 50 },
   });
   assert.equal(mapDevice(gate).writers.open(1)[0].decide({ value: 50 }), 'send', 'half open');
-  // A legacy position of a gate the box reports open: always sent once allowed.
+  // 0.1.3 (issue #4): the legacy position / state of a gate are no longer
+  // driven (never a shutter): no writer, a command is refused.
   const fgr = dev({
     type: 'com.fibaro.FGR223',
     baseType: 'com.fibaro.rollerShutter',
     actions: ['open', 'close', 'stop', 'setValue'],
     properties: { value: 99, deviceRole: 'Gate' },
   });
-  const [call] = mapDevice(fgr, undefined, new Set(['position', 'state'])).writers.position(30);
-  assert.deepEqual([call.name, call.args], ['setValue', [30]]);
-  assert.equal(call.decide({ value: 99 }), 'send');
+  const m = mapDevice(fgr, undefined, new Set(['position', 'state']));
+  assert.equal(m.writers.position, undefined);
+  assert.equal(m.writers.state, undefined);
 });
 
 test('M4 / S11: no position for a relay with a blinds role (a boolean value)', () => {
@@ -525,8 +526,11 @@ test('M8 / I2: the manifest and the docs say what is off and what the update doe
   const en = readFileSync(new URL('../docs/en.md', import.meta.url), 'utf8');
   assert.match(fr, /historique\s+est\s+supprimé/);
   assert.match(en, /their\s+history\s+is\s+deleted/);
-  assert.match(fr, /rôle sur Portail\s+ou Porte de garage/);
-  assert.match(en, /role to Gate or\s+Garage door/);
+  assert.match(fr, /rôle\s+Portail\s+ou\s+Porte de garage dans la box/);
+  assert.match(en, /Gate or\s+Garage door\s+role\s+in the box/);
+  // 0.1.3 (issue #4): "Update" after a gate or a lamp relay changes category.
+  assert.match(fr, /Mettre à jour[\s\S]*supprime avec leur historique/);
+  assert.match(en, /"Update"\s+deletes them with their history/);
   const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
   assert.match(changelog, /history\s+is\s+deleted/);
   assert.match(changelog, /refused\s+while\s+the\s+option\s+is\s+off/);

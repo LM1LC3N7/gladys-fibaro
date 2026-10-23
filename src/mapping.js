@@ -185,23 +185,54 @@ const SHUTTER_ROLES = new Set([
 
 const GATE_WORDS = ['barrier', 'gate', 'garage', 'door'];
 const GATE_ROLES = new Set(['Gate', 'GarageDoor']);
-/** A door sensor or a door lock is not a gate. */
-const NOT_A_GATE = ['sensor', 'lock', 'detector'];
+/** Words of a role picked in the box (any case or spelling of it: Gate, gate, SlidingGate, GarageDoors…). */
+const GATE_ROLE_WORDS = ['barrier', 'gate', 'gates', 'garage', 'door', 'doors', 'portal'];
+/** A door sensor, a door lock or a door bell is not a gate. */
+const NOT_A_GATE = ['sensor', 'lock', 'detector', 'bell'];
 const VALVE_ROLES = new Set(['Valve', 'WaterValve', 'GasValve']);
+/**
+ * The name of a gate on a shutter module whose role was left to a blind role
+ * (issue #4: "Portail" offered as a shutter): portail, portillon, gate,
+ * barrière, garage door / porte de garage, Garagentor, Tor, cancello, or the
+ * name "Garage" alone. "Volet garage" stays a shutter.
+ */
+const GATE_NAME =
+  /(^|[^\p{L}])(portails?|portillons?|gates?|barri[eè]res?|barriers?|garagentor|tor|cancello|portón)($|[^\p{L}])|garage\s*door|porte\s+(de\s+|du\s+)?garage|^\s*garage\s*$/iu;
+
+/** The HC3 / Yubii categories of a device ("lights", "blinds", "gates"…), lower case. */
+const categoriesOf = (dev) =>
+  toList(dev.properties.categories).map((c) => String(c).trim().toLowerCase());
+
+/** The words of the role picked in the box: OutdoorLight -> outdoor, light. */
+const roleWordsOf = (dev) => new Set(typeWords(dev.properties.deviceRole));
 
 /**
- * A gate, a garage door or a motorized door: a type or base type with the
- * word barrier, gate, garage or door (not a sensor nor a lock), or the Gate /
- * GarageDoor role picked in the box (a relay or a shutter module driving a
- * gate). Never a switch, a dimmer nor a shutter: opening it is off until the
- * user allows it (allow_gates).
+ * A gate, a garage door or a motorized door:
+ * - a type or base type with the word barrier, gate, garage or door,
+ * - a role picked in the box with one of these words (Gate, GarageDoor, in
+ *   any case or spelling), or the HC3 / Yubii "gates" category,
+ * - a shutter-like device (a shutter module set up for a gate, as on the
+ *   Yubii Home of issue #4) named portail, gate, porte de garage…
+ * Never a sensor, a lock nor a bell; never a switch, a dimmer nor a shutter:
+ * opening it is off until the user allows it (allow_gates).
  */
 export function isGate(dev) {
   const words = wordsOf(dev);
-  if (anyWord(words, NOT_A_GATE)) {
+  const roleWords = roleWordsOf(dev);
+  if (anyWord(words, NOT_A_GATE) || anyWord(roleWords, NOT_A_GATE)) {
     return false;
   }
-  return anyWord(words, GATE_WORDS) || GATE_ROLES.has(dev.properties.deviceRole);
+  if (
+    anyWord(words, GATE_WORDS) ||
+    GATE_ROLES.has(dev.properties.deviceRole) ||
+    anyWord(roleWords, GATE_ROLE_WORDS) ||
+    categoriesOf(dev).includes('gates')
+  ) {
+    return true;
+  }
+  // By its name, only a device that would otherwise be a shutter (never a
+  // light, a plug or a relay named "Prise garage").
+  return looksLikeShutter(dev) && GATE_NAME.test(dev.name ?? '');
 }
 
 /** A lock: the secure / unsecure actions, or the word lock in its type. */
@@ -290,6 +321,11 @@ const deadCheck = (name, p) => {
  * or open it).
  */
 export function isShutter(dev) {
+  return !isGate(dev) && looksLikeShutter(dev);
+}
+
+/** The shutter rules alone (the gate rules not applied). */
+function looksLikeShutter(dev) {
   const types = [dev.type, dev.baseType].filter(Boolean);
   if (wordsOf(dev).has('sensor')) {
     return false;
@@ -355,10 +391,19 @@ export function roleOf(dev) {
   return undefined;
 }
 
-/** A switch that drives a lamp (HC2 isLight, HC3 deviceRole "Light"). */
+/** Words of the HC3 / Yubii roles of a lamp: Light, OutdoorLight, GardenLamp, NightLamp, Bracket… */
+const LIGHT_ROLE_WORDS = ['light', 'lights', 'lamp', 'lamps', 'lighting', 'bracket', 'chandelier'];
+
+/**
+ * A switch that drives a lamp: HC2 isLight, an HC3 / Yubii lamp role (Light,
+ * OutdoorLight, GardenLamp, NightLamp, Bracket…), the "lights" category, the
+ * `light` interface, or a Dimmer 2.
+ */
 export const isLight = (dev) =>
   toBool(dev.properties.isLight) === true ||
   dev.properties.deviceRole === 'Light' ||
+  anyWord(roleWordsOf(dev), LIGHT_ROLE_WORDS) ||
+  categoriesOf(dev).includes('lights') ||
   dev.type === 'com.fibaro.FGD212' ||
   Boolean(dev.interfaces?.includes('light'));
 
@@ -728,9 +773,9 @@ class DeviceMapper {
    * open). A gate driven by a plain relay (turnOn only): the relay contact
    * (read-only) and an Open button pulsing turnOn, behind allow_gates, decided
    * on nothing but the device being alive (a relay value is not the position
-   * of the gate). A device created when gates were offered as shutters keeps
-   * its `state` / `position` features, with the same rule; a switch feature
-   * of a gate is never kept.
+   * of the gate); a one-way motor reporting neither value nor state likewise.
+   * No switch, dimmer or shutter feature of a gate is ever kept from an older
+   * version: those created features are left without a writer.
    */
   gate() {
     const dev = this.dev;
@@ -754,15 +799,21 @@ class DeviceMapper {
       });
       return;
     }
-    const decideOpening = (skipWhenOpen) => (p) => {
+    // A one-way motor (no value, no state at all): like a relay, its position
+    // cannot be known; opening is decided on the device being alive only.
+    const noFeedback = !hasProp(dev, 'state') && !hasProp(dev, 'value');
+    const decideOpening = (p) => {
       deadCheck(name, p);
+      if (noFeedback && (p?.state ?? null) === null && (p?.value ?? null) === null) {
+        return 'send';
+      }
       const state = gateStateOf(p);
       if (state === undefined) {
         throw new Error(`${name}: state unknown, opening refused (command not sent)`);
       }
-      return skipWhenOpen && state === 'open' ? 'skip' : 'send';
+      return state === 'open' ? 'skip' : 'send';
     };
-    const openGuard = { guard: GUARDS.GATES, decide: decideOpening(true) };
+    const openGuard = { guard: GUARDS.GATES, decide: decideOpening };
     const openCall = has(dev, 'open')
       ? { ...call('open'), ...openGuard }
       : has(dev, 'setValue')
@@ -801,58 +852,11 @@ class DeviceMapper {
         this.pushButton(key, label, action);
       }
     }
-
-    // Legacy features (a gate created as a shutter by 0.1.1): kept, same rule.
-    if (this.existing.has('position') && hasProp(dev, 'value')) {
-      this.add(
-        'position',
-        'Position',
-        { category: C.SHUTTER, type: T.SHUTTER.POSITION, min: 0, max: 100, unit: U.PERCENT },
-        {
-          props: ['value'],
-          read: (p) => positionOf(p.value),
-          write: has(dev, 'setValue')
-            ? (value) => {
-                const level = toLevel(strictNumber(value, 0, 100, name));
-                // A partial position is not "open": always sent once allowed and known.
-                return [
-                  level === 0
-                    ? protect(call('setValue', 0))
-                    : {
-                        ...call('setValue', level),
-                        guard: GUARDS.GATES,
-                        decide: decideOpening(false),
-                      },
-                ];
-              }
-            : undefined,
-        },
-      );
-    }
-    if (this.existing.has('state')) {
-      this.add(
-        'state',
-        'Open/close',
-        { category: C.SHUTTER, type: T.SHUTTER.STATE, min: -1, max: 1, keepHistory: false },
-        {
-          write: (value) => {
-            const wanted = strictNumber(value, -1, 1, name);
-            const action =
-              wanted === COVER_STATE.OPEN
-                ? openCall
-                : wanted === COVER_STATE.CLOSE
-                  ? closeCall
-                  : wanted === COVER_STATE.STOP
-                    ? stopCall
-                    : undefined;
-            if (!action) {
-              throw new Error(`${name} cannot do ${value}`);
-            }
-            return [action];
-          },
-        },
-      );
-    }
+    // No shutter feature on a gate, ever, not even the `state` / `position` of
+    // a gate created as a shutter by 0.1.1 or 0.1.2 (issue #4): a "close the
+    // shutters" or a scene opening the shutters must never reach it. Those
+    // created features have no writer any more (a command is refused, nothing
+    // sent) until the user clicks "Update" in Discovery.
   }
 
   /**

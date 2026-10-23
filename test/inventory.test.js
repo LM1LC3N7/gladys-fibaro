@@ -25,10 +25,17 @@ test('a real HC3: nothing but system devices and a weather plugin', () => {
 test('the hidden central-scene endpoint of a switch is kept, named after its device', () => {
   for (const fixture of ['device-scene-support', 'device-scene-support-hc3']) {
     const inventory = buildInventory({ devices: pyfibaro(fixture) });
-    assert.deepEqual(names(inventory), ['387 Licht Roman Main'], fixture);
-    assert.equal(inventory.skipped.hidden, 2, 'the node and the hidden light');
+    // Issue #4: the hidden relay of the module is offered too, never the
+    // module as its S1/S2 keys only.
+    assert.deepEqual(
+      names(inventory),
+      ['176 Licht Roman inaktiv', '387 Licht Roman Main'],
+      fixture,
+    );
+    assert.equal(inventory.skipped.hidden, 1, 'the node only');
+    assert.equal(inventory.skipped.nodes, 1);
   }
-  const [hc2] = buildInventory({ devices: pyfibaro('device-scene-support') }).devices;
+  const hc2 = buildInventory({ devices: pyfibaro('device-scene-support') }).devices.at(-1);
   assert.deepEqual(
     centralScene(hc2.properties).map((k) => k.keyId),
     [1, 2, 3, 4],

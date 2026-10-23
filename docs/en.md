@@ -37,13 +37,14 @@ affiliated with Fibaro or Nice.
 | In the box                                                | In Gladys                                                            |
 | --------------------------------------------------------- | -------------------------------------------------------------------- |
 | Relay, wall plug (binary switch)                          | a switch, with its power and energy when the module measures them    |
+| Relay of a lamp (Light, Garden lamp, Bracket… role)       | an on/off light, with its power and energy                           |
 | Dimmer (Dimmer 2, Walli Dimmer…)                          | a light (on/off, brightness) when it drives a lamp, else a dimmer    |
 | RGBW controller                                           | a light: on/off, brightness, color                                   |
 | Roller shutter (Roller Shutter 2/3, Walli Roller Shutter) | a shutter: position, open, close, stop                               |
 | Shutter without position                                  | open, close, stop                                                    |
 | Thermostatic head, thermostat, HVAC                       | a thermostat: setpoint, mode (off, heat, cool, auto), heating state  |
 | Door lock                                                 | a lock: locking always; unlocking only with the option               |
-| Gate, garage door, motorized door (barrier, Gate role)    | its state, and Open, Close, Stop buttons; Open only with the option  |
+| Gate, garage door, motorized door (see below)             | its state, and Open, Close, Stop buttons; Open only with the option  |
 | Gate on a relay (Gate or Garage door role)                | the relay contact, and an Open button (a pulse) only with the option |
 | Water or gas valve (valve type, Valve role)               | its state, and Open and Close buttons, both only with the option     |
 | Door/window, motion, flood, smoke, CO sensor              | the matching Gladys sensor                                           |
@@ -72,21 +73,51 @@ relay only has an Open button (a pulse): Gladys cannot know whether it is open,
 it only checks that it answers. On a step-by-step gate, that pulse may also
 stop or close it; the relay must be set to pulse mode in the box. For a valve
 on a relay, "relay on" is read as "valve open": if your valve works the
-other way round, Open and Close are swapped. A gate driven by a shutter module stays a
-shutter for Gladys: set its role to Gate or Garage door in the box. Never
-tested on a real gate, lock or valve.
+other way round, Open and Close are swapped. Never tested on a real gate, lock
+or valve.
+
+**How Gladys recognizes a gate.** A device is a gate (never a shutter, a
+switch nor a dimmer, so never reached by "close the shutters", "turn
+everything off" or a scene opening the shutters) when:
+
+- its type contains barrier, gate, garage or door;
+- its role in the box contains gate, garage door, door or barrier (`Gate`,
+  `GarageDoor`…), or it is in the "Gates" category (`gates`) of an HC3 or a
+  Yubii Home;
+- it is a shutter module (or a radio motor) whose name contains portail,
+  portillon, gate, barrière, porte de garage, garage door, Garagentor, Tor, or
+  is "Garage" ("Volet garage" stays a shutter).
+
+If your gate still shows up as a shutter, give it the Gate or Garage door role
+in the box, or a name with "Gate" in it. A gate motor that reports neither a
+position nor a state (a one-way radio motor) opens, once the option is on,
+when the box says it answers, like a gate on a relay. A gate sensor, a lock or
+a door bell is never a gate.
 
 **After updating from 0.1.1.** The devices already added keep their features,
 but an opening, unlocking or valve command is refused while its option is off:
 the 0.1.1 scenes that opened a gate, unlocked a lock or drove a valve then fail
 with that message. A shutter added in 0.1.1 as a switch or a dimmer shows
 "Update" in Discovery: that button replaces its On/off and Level features with
-Position and Open/close, and their history is deleted. A gate added in 0.1.1 as
-a shutter keeps its shutter features, with the same rule; a gate added as a
+Position and Open/close, and their history is deleted. A gate added as a
 switch loses that feature (and its history) on update. A valve added in
 0.1.1 as a switch keeps its On/off feature and its history, but read-only:
 only the Open and Close buttons drive the valve, and the 0.1.1 scenes that
 used that switch must move to those buttons.
+
+**After updating to 0.1.3.** The ids of the devices do not change, but some
+change category; open **Discovery** and press **Update** on them:
+
+- a **gate** added as a shutter ("Shutter state", "Position") becomes a gate:
+  its state and Open, Close, Stop buttons. Its old shutter features no longer
+  drive anything (the command is refused, nothing is sent) and "Update"
+  deletes them with their history; redo the scenes that used them with the
+  new buttons;
+- a **lamp relay** added as a switch becomes a light: its On/off feature
+  changes category, and its history goes with "Update";
+- a **hidden light** of the box whose S1/S2 keys only were offered shows up
+  as a new device (to add); the "buttons" device already added does not
+  change (Discovery may call it "<name> S1/S2").
 
 A device the box reports as **dead** (it no longer answers: battery, range,
 power) keeps a badge with an orange dot in Gladys until it answers again.
@@ -145,3 +176,39 @@ cannot be started this way.
   never a switch. The S1/S2 keys of a shutter module with scene activation
   also show up as read-only "button" features: they are scene triggers, not
   the shutter controls.
+- **A light shows up as "Button click" only**: on a module whose relay the
+  box hides, only the S1/S2 inputs were offered. Since 0.1.3 the relay is
+  offered on its own, as a light (or a switch when its role in the box is not
+  a lamp); the buttons device stays a trigger.
+
+## Sending the list of your devices (for an issue)
+
+When a device is recognized wrongly, the list of the box helps fix the
+integration:
+
+1. In a browser logged in to the box (open its web interface first), open
+   `http://<box-ip>/api/devices`: the **whole list**, no number at the end.
+2. Search (Ctrl+F) for the name of the device, or better its number: in
+   Gladys, **Technical parameters** of the device → `FIBARO_ID`, then search
+   for `"id": <that number>` (or `"id":<that number>`).
+3. Copy the block of the device (from `{"id": …` to its closing brace), then
+   the block of its parent (the number in its `parentId`), and the blocks with
+   the same `parentId` (the other channels of the module).
+4. Check that no personal data is in there (names, addresses, e-mails, GPS
+   coordinates: replace them with `xxx`); there is no password in that list.
+   Paste them in the GitHub issue (or in a gist).
+
+**Why `/api/devices/<number>` answers "not found".** Possible causes (not
+checked on a Yubii Home):
+
+- the number typed is not the Fibaro id: use the bare number of `FIBARO_ID`,
+  not the Gladys external id (`fibaro:123`, or with the `ext:…` prefix), nor
+  the number of a Gladys device;
+- the number comes from the Yubii app or from the address of a page of the
+  web interface: it may name another device (the visible module) than the one
+  Gladys offers. The "S1/S2 buttons" device, for one, is a hidden device of
+  the box named like `175.0.1`, which Gladys calls after its module: searching
+  the list by its name does not find it, search for its number;
+- the device was included again in the box since (it has a new number).
+
+The whole `/api/devices` list avoids all three.

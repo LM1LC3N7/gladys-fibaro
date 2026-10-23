@@ -157,6 +157,47 @@ up to date at the end of every milestone.
   sent" before that. Only cover / gate / lock / valve commands are queued.
   Not done: republishing the old switch / dimmer of a shutter read-only to
   keep its history (the reviewer's option): "Update" deletes it, documented.
+- Issue #4 after 0.1.2 (2026-10-23, Yubii Home 5.210, no device dump: the
+  user's `/api/devices/<id>` answered "not found"; screenshots only: "Portail"
+  offered with "Shutter state" only, "Éclairage extérieur" with "Button
+  click" only). Causes taken, not confirmed:
+  - Gate: a shutter module or a Nice radio motor whose role is not exactly
+    `Gate` / `GarageDoor` (left to a blinds role, or another spelling) and
+    whose type has no gate word. Rule, the safest and broadest: `isGate` also
+    on any role whose words contain gate / garage / door / barrier / portal
+    (not sensor, lock, detector, bell: `GateSensor`, `VideoGateBell`), on the
+    HC3 `gates` category (`properties.categories`, a JSON string on an HC2),
+    and on the name (`GATE_NAME`: portail, portillon, gate, barrière, porte de
+    garage, garage door, Garagentor, Tor, cancello, "Garage" alone) **only for
+    a shutter-like device** (never a relay: "Prise garage", "Lumière
+    portail"). A wrong gate only puts opening behind `allow_gates`; a wrong
+    shutter lets "close the shutters" and scene openings reach a gate.
+  - The 0.1.2 migration (a gate created as a shutter kept `state` /
+    `position`, opening guarded) is dropped: a gate never carries a shutter
+    feature (Louis's brief: never reached by "close the shutters" nor by a
+    shutter-opening scene). The created features have no writer (refused,
+    nothing sent) until "Update" removes them; documented. External ids are
+    unchanged.
+  - A gate that reports neither `value` nor `state` (one-way radio motor):
+    opening decided on "alive" only, like the relay gate (otherwise it could
+    never open). A `state` that reads Unknown is still refused. To review.
+  - Light: the pyfibaro HC3 dump of a switch module (`device-scene-support-hc3`)
+    has a hidden node, a **hidden** `binarySwitch` and a hidden
+    central-scene endpoint: 0.1.2 offered only the endpoint, named after the
+    module, with button features: the user's exact symptom. Now a hidden
+    output (turnOn / setValue / open / close, not a node) whose module's
+    central-scene endpoint is offered is offered too, under its own name (the
+    module's when its own is numeric). The keys stay their own device (same
+    external ids); when both carry the same name, the keys become "<name>
+    S1/S2" (name only, created devices keep theirs). Also: `isLight` on any
+    lamp role (`Light`, `OutdoorLight`, `GardenLamp`, `NightLamp`, `Bracket`,
+    words light / lamp / lighting / bracket / chandelier) and on the `lights`
+    category; a lamp relay created as a switch changes category ("Update",
+    history of that feature lost, documented).
+  - "Not found" on `/api/devices/<id>`: likely the Gladys external id
+    (`fibaro:123`) or an id of the Yubii app / web page instead of the bare
+    `FIBARO_ID`, or the hidden endpoint searched by its Gladys name;
+    documented with the export steps (whole list, block and parent).
 - RGBW: color = RGB of `color` ("r,g,b,w"), `lastColorSet` when the
   controller is off (0,0,0,0); written with `setColor` and string arguments
   (as Home Assistant), white at 0.

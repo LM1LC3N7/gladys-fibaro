@@ -10,6 +10,36 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Gates (issue #4): a gate motor on a shutter module or a radio gate motor of
+  a Yubii Home was offered as a shutter ("Shutter state"). A device is now a
+  gate also when its role in the box contains gate, garage, door, barrier or
+  portal in any spelling (`gate`, `SlidingGate`, `GarageDoors`,
+  `VideoGateOpen`…), when it is in the HC3 / Yubii "gates" category, or when a
+  shutter-like device is named portail, portillon, gate, barrière, porte de
+  garage, garage door, Garagentor, Tor or "Garage" ("Volet garage" stays a
+  shutter). A gate offers its state (when it reports one) and Open / Close /
+  Stop buttons: opening only with `allow_gates` (off by default), close and
+  stop always. A gate is never a shutter, a switch or a dimmer any more, not
+  even one created as a shutter by 0.1.1 or 0.1.2: its old shutter features
+  are no longer driven (a command is refused, nothing sent) and "Update" in
+  Discovery removes them. A one-way gate motor that reports neither a value
+  nor a state is opened (once allowed) when the box says it is alive, like a
+  gate on a relay.
+- Lights (issue #4): a relay with a lamp role in the box (`Light`,
+  `OutdoorLight`, `GardenLamp`, `NightLamp`, `Bracket`…) or in the "lights"
+  category is a Gladys light, not a switch. The relay or dimmer of a module
+  that the box hides while it shows the module's S1/S2 keys is offered too, as
+  its own device: an outdoor light is no longer offered as its keys only
+  ("Button click"). The keys stay a separate device, a scene trigger; when
+  both carry the same name, the keys are called "<name> S1/S2".
+
+### Changed
+
+- Docs: how to export the devices of the box for an issue (`/api/devices`, the
+  whole list) and why `/api/devices/<id>` can answer "not found".
+
 ## [0.1.2] - 2026-10-20
 
 ### Fixed

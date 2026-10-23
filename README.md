@@ -39,12 +39,15 @@ of the box):
   changed or removed. Left out: users, phones, controllers, disabled and hidden
   devices, plugins and Quick Apps (unless the user asks for them). The hidden
   central-scene endpoint the HC3 creates for a remote or a push button is kept,
-  named after its physical device.
+  named after its physical device, and so are the hidden outputs (relay,
+  dimmer) of that same module.
 - **Mapping**: by `type`, then `baseType`, then the actions and properties of
   the device (the order of the Home Assistant integration): switches, dimmers
-  (a light when `isLight` / `deviceRole: Light`), RGBW controllers (color as an
-  RGB integer, the last color when off), roller shutters (position 0–99 with
-  5 % slack at the ends, open / close / stop), gates and garage doors (state,
+  (a light when `isLight`, a lamp `deviceRole` or the `lights` category), RGBW
+  controllers (color as an RGB integer, the last color when off), roller
+  shutters (position 0–99 with 5 % slack at the ends, open / close / stop),
+  gates and garage doors (by type, role, `gates` category, or the name of a
+  shutter-like device; never a shutter; state,
   Open / Close / Stop, or an Open pulse for a relay; opening only with
   `allow_gates`), door locks (unlocking only with `allow_unlock`), water and
   gas valves (state, Open / Close, only with `allow_valves`); guarded
