@@ -271,3 +271,7 @@ false` (a missing or unreadable `dead` is refused). A gate with a null
   not a Fibaro API, a redirect names its target. `/api/sections` refused or
   missing: ignored.
 - Gladys `gladys_version >= 5.1.0` (scene triggers and actions).
+
+## Next patch
+
+- Migration review minors: see `_lots/migration-reviews/w16-gladys-fibaro-r1.md`.
