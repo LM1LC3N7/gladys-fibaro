@@ -57,6 +57,11 @@ Chaque appareil porte le nom de sa pièce, comme dans la box : `Prise murale
 téléphones de la box, et les appareils des plugins (HC2) et Quick Apps (HC3),
 sauf si vous activez **Proposer aussi les plugins et Quick Apps**.
 
+**Les consignes des thermostats sont bornées.** Une température cible hors de
+la plage affichée dans Gladys (les limites de l'appareil quand la box les
+indique, sinon 5 à 35 °C ou 40 à 95 °F) est refusée, sans rien envoyer à la
+box.
+
 **Ouverture, déverrouillage et vannes désactivés par défaut.** Gladys ferme et
 arrête un portail, une porte de garage ou une porte motorisée, et verrouille
 une serrure, mais ne les ouvre ni ne les déverrouille tant que vous n'avez pas

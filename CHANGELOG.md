@@ -10,6 +10,15 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Changed
+
+- **Setpoints bounded**: a thermostat target temperature outside the range
+  published to Gladys (the device's own capabilities when the box reports a
+  sensible pair, else 5-35 °C / 40-95 °F) is refused and nothing is sent to
+  the box, instead of being passed through as is.
+- Integration SDK 0.16.1 (no change for the devices); the test runner stops a
+  hanging test after 60 s.
+
 ## [0.1.3] - 2026-10-23
 
 ### Fixed

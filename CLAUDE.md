@@ -8,7 +8,7 @@ already taken and the next milestones.
 
 A Gladys Assistant **external integration** of type `device`: a Node.js
 service (Node 22+, ESM, no build step) in its own sandboxed Docker container,
-talking to Gladys through `@gladysassistant/integration-sdk` (v0.15), its only
+talking to Gladys through `@gladysassistant/integration-sdk` (v0.16), its only
 runtime dependency. It reads the devices of the user's Fibaro box (Home Center
 2 / Lite: API v4; Home Center 3 / HC3 Lite / Nice Yubii Home: API v5) through
 its local REST API, turns every enabled and visible device into a Gladys
@@ -21,7 +21,7 @@ scene action. Unofficial, not affiliated with Fibaro or Nice.
 
 ```bash
 npm install
-npm test                                  # node --test, the built-in runner
+npm test                                  # node --test --test-timeout=60000
 node --test test/mapping.test.js          # one file
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
@@ -55,6 +55,13 @@ test/helpers/       a fake Fibaro box; Gladys is the SDK's fake
 
 ## Rules
 
+- **Features follow the core model.** Every feature has a non-empty `name`, a
+  numeric `min` and `max` (0/0 for text), boolean `read_only` and
+  `has_feedback`: Gladys refuses it otherwise, and the SDK's fake Gladys
+  (0.16.1) too; `test/helpers/coreFeature.js` checks the 19 devices of
+  the fixture inventory, in °C and in °F.
+  Devices carry `should_poll: false` (Gladys 5.3 polls a device with
+  `poll_frequency` unless it says so).
 - **External ids are forever**: device = `fibaro:<Fibaro device id>`, feature
   = `<role>` (`binary`, `brightness`, `dimmer`, `color`, `position`, `state`,
   `lock`, `gate`, `relay`, `valve`, `open`, `close`, `stop`, `setpoint`, `cooling-setpoint`, `mode`, `operating-state`,

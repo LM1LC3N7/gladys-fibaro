@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { buildModel, deviceName } from '../src/devices.js';
+import { assertCoreDevice } from './helpers/coreFeature.js';
 import { buildInventory } from '../src/inventory.js';
 import { ROOMS, SECTIONS, hc3Devices } from './fixtures/fibaro.js';
 
@@ -61,4 +62,16 @@ test('the discovered devices pass the checks of the Gladys host API', async () =
   const model = buildModel((id) => fake.externalIds('fibaro', id), inventory);
   await fake.publishDiscoveredDevices(model.devices);
   assert.equal(fake.fake.discoveredDevices.length, 19);
+});
+
+test('every feature has a numeric min and max and the other core fields', () => {
+  for (const unit of ['C', 'F']) {
+    const model = buildModel(idsOf, inventory, { unit });
+    assert.equal(model.devices.length, 19);
+    let features = 0;
+    for (const device of model.devices) {
+      features += assertCoreDevice(device, `${unit} ${device.external_id}`);
+    }
+    assert.ok(features > model.devices.length, `${unit}: ${features} features`);
+  }
 });

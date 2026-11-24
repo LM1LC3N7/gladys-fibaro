@@ -1049,6 +1049,13 @@ class DeviceMapper {
     }
     const unit = temperatureUnit(this.p.unit, this.boxUnit);
     const [low, high] = unit === 'F' ? [40, 95] : [5, 35];
+    // The range of the feature bounds every value written: the device's own
+    // capabilities when the box reports a sensible pair, else 5-35 °C / 40-95 °F.
+    let min = toNumber(this.p[minProp]) ?? low;
+    let max = toNumber(this.p[maxProp]) ?? high;
+    if (!(min < max) || min < low - 50 || max > high + 50) {
+      [min, max] = [low, high];
+    }
     const action = actions.find((a) => has(dev, a));
     this.add(
       key,
@@ -1056,8 +1063,8 @@ class DeviceMapper {
       {
         category: C.THERMOSTAT,
         type: T.THERMOSTAT.TARGET_TEMPERATURE,
-        min: toNumber(this.p[minProp]) ?? low,
-        max: toNumber(this.p[maxProp]) ?? high,
+        min,
+        max,
         unit: TEMPERATURE_UNITS[unit],
       },
       {
@@ -1071,7 +1078,10 @@ class DeviceMapper {
           }
           return undefined;
         },
-        write: action ? (value) => [call(action, Number(value))] : undefined,
+        // Out of the range published to Gladys: refused, nothing sent.
+        write: action
+          ? (value) => [call(action, strictNumber(value, min, max, `${dev.name} setpoint`))]
+          : undefined,
       },
     );
   }

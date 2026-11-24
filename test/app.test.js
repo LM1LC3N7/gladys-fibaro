@@ -151,6 +151,15 @@ test('the Gladys commands run the device actions (API v5)', async (t) => {
   assert.deepEqual(await run('Radiateur chambre (Chambre)', 'setpoint', 21.5), [
     [5, '70', 'setHeatingThermostatSetpoint', 21.5],
   ]);
+  // A setpoint outside the range of the device (5-28 °C here): refused, nothing sent.
+  const radiator = deviceNamed(gladys, 'Radiateur chambre (Chambre)');
+  const sent = box.actions.length;
+  for (const bad of [60, 4.5, 'x']) {
+    const refused = await gladys.fake.setValue(radiator, featureOf(radiator, 'setpoint'), bad);
+    assert.equal(refused.success, false, `setpoint ${bad}`);
+    assert.match(refused.error, /invalid value .*expected 5 to 28/);
+  }
+  assert.equal(box.actions.length, sent, 'nothing sent to the box');
   assert.deepEqual(await run('Radiateur chambre (Chambre)', 'mode', 0), [
     [5, '70', 'setThermostatMode', 'Off'],
   ]);

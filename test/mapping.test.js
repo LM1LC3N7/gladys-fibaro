@@ -142,6 +142,28 @@ test('a thermostatic head: setpoint, mode, heating state, battery', () => {
   assert.deepEqual(head.write('setpoint', 21.5), [
     { name: 'setHeatingThermostatSetpoint', args: [21.5] },
   ]);
+  assert.deepEqual(head.write('setpoint', '28'), [
+    { name: 'setHeatingThermostatSetpoint', args: [28] },
+  ]);
+  // Bounded by the range published to Gladys (the device's capabilities): refused, nothing built.
+  for (const bad of [28.5, 4, 60, -1, 'x', '', null, undefined, NaN, Infinity]) {
+    assert.throws(
+      () => head.write('setpoint', bad),
+      /setpoint: invalid value .* \(expected 5 to 28\)/,
+      `setpoint ${String(bad)}`,
+    );
+  }
+  // Capabilities the box reports upside down or absurd: the default range.
+  const odd = mapped({
+    ...HC3.get('70'),
+    properties: {
+      ...HC3.get('70').properties,
+      heatingThermostatSetpointCapabilitiesMin: 40,
+      heatingThermostatSetpointCapabilitiesMax: 10,
+    },
+  });
+  assert.deepEqual([odd.feature('setpoint').min, odd.feature('setpoint').max], [5, 35]);
+  assert.throws(() => odd.write('setpoint', 36), /expected 5 to 35/);
   assert.deepEqual(head.write('mode', THERMOSTAT_MODE.OFF), [
     { name: 'setThermostatMode', args: ['Off'] },
   ]);

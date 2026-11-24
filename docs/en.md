@@ -57,6 +57,10 @@ room)`. Left out: the disabled and hidden devices, the users and phones of
 the box, and the devices of the plugins (HC2) and Quick Apps (HC3), unless
 you turn on **Also offer the plugins and Quick Apps**.
 
+**Thermostat setpoints are bounded.** A target temperature outside the range
+shown in Gladys (the device's own limits when the box reports them, else 5 to
+35 °C or 40 to 95 °F) is refused and nothing is sent to the box.
+
 **Opening, unlocking and valves are off by default.** Gladys closes and stops
 a gate, a garage door or a motorized door, and locks a lock, but never opens or
 unlocks them until you turn on **Allow opening gates, garage doors and doors**
